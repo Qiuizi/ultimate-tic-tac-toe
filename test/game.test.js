@@ -10,7 +10,6 @@ import {
   getComputerMove,
   getLegalMoves,
   getWinner,
-  minimax,
 } from "../src/game.js";
 
 test("first move can be played anywhere and forces the matching target board", () => {
@@ -194,21 +193,7 @@ test("computer move always returns a legal move", () => {
   );
 });
 
-test("minimax scores faster computer wins higher", () => {
-  const state = createInitialState();
-  state.winner = PLAYERS.O;
-
-  assert.equal(minimax(state, 2, false), 8);
-});
-
-test("minimax scores human wins as negative", () => {
-  const state = createInitialState();
-  state.winner = PLAYERS.X;
-
-  assert.equal(minimax(state, 3, true), -7);
-});
-
-test("computer uses minimax to take a small-board win before a positional move", () => {
+test("computer takes a small-board win when it improves the ultimate position", () => {
   const state = createInitialState();
   state.currentPlayer = PLAYERS.O;
   state.forcedBoard = 4;
@@ -227,24 +212,25 @@ test("computer uses minimax to take a small-board win before a positional move",
   assert.deepEqual(getComputerMove(state), { boardIndex: 4, cellIndex: 2 });
 });
 
-test("computer blocks a fork-style small-board threat", () => {
+test("computer avoids sending the player to a board with an immediate win", () => {
   const state = createInitialState();
   state.currentPlayer = PLAYERS.O;
   state.forcedBoard = 4;
-  state.boards[4].cells = [
+  state.boards[0].cells = [
+    PLAYERS.X,
     PLAYERS.X,
     null,
     null,
     null,
-    PLAYERS.O,
     null,
     null,
     null,
-    PLAYERS.X,
+    null,
   ];
+  state.boards[4].cells = [null, null, null, null, null, null, null, null, null];
 
   const move = getComputerMove(state);
 
-  assert.equal([1, 3, 5, 7].includes(move.cellIndex), true);
   assert.equal(move.boardIndex, 4);
+  assert.notEqual(move.cellIndex, 0);
 });

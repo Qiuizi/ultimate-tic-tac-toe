@@ -28,8 +28,6 @@ export const BOARD_NAMES = [
 
 export const CENTER_CELL = 4;
 export const CORNER_CELLS = [0, 2, 6, 8];
-export const EDGE_CELLS = [1, 3, 5, 7];
-export const DEFAULT_MINIMAX_DEPTH = 5;
 
 export function createInitialState() {
   return {
@@ -167,24 +165,21 @@ export function getComputerMove(state, computer = PLAYERS.O, human = PLAYERS.X) 
   return (
     findMoveByOutcome(state, legalMoves, computer, "macro-win") ||
     findMoveByOutcome(state, legalMoves, human, "macro-win") ||
-    findSmallBoardForkBlockMove(state, legalMoves, computer, human) ||
-    getBestMinimaxMove(state, legalMoves, computer, human, DEFAULT_MINIMAX_DEPTH)
+    getBestUltimateMove(state, legalMoves, computer, human)
   );
 }
 
-export function getBestMinimaxMove(
+export function getBestUltimateMove(
   state,
   legalMoves = getLegalMoves(state),
   computer = PLAYERS.O,
   human = PLAYERS.X,
-  maxDepth = DEFAULT_MINIMAX_DEPTH,
 ) {
   let bestMove = null;
   let bestScore = Number.NEGATIVE_INFINITY;
 
-  for (const move of orderMoves(state, legalMoves, computer, human)) {
-    const nextState = applyMove(state, move.boardIndex, move.cellIndex);
-    const score = minimax(nextState, 1, false, computer, human, maxDepth);
+  for (const move of legalMoves) {
+    const score = scoreUltimateMove(state, move, computer, human);
 
     if (score > bestScore) {
       bestScore = score;
@@ -193,62 +188,6 @@ export function getBestMinimaxMove(
   }
 
   return bestMove || legalMoves[0] || null;
-}
-
-export function minimax(
-  state,
-  depth,
-  isMaximizing,
-  computer = PLAYERS.O,
-  human = PLAYERS.X,
-  maxDepth = DEFAULT_MINIMAX_DEPTH,
-) {
-  if (state.winner === computer) {
-    return 10 - depth;
-  }
-
-  if (state.winner === human) {
-    return depth - 10;
-  }
-
-  if (state.draw) {
-    return 0;
-  }
-
-  if (depth >= maxDepth) {
-    return normalizeHeuristicScore(evaluateState(state, computer, human));
-  }
-
-  const legalMoves = orderMoves(state, getLegalMoves(state), computer, human);
-  if (legalMoves.length === 0) {
-    return 0;
-  }
-
-  if (isMaximizing) {
-    let bestScore = Number.NEGATIVE_INFINITY;
-
-    for (const move of legalMoves) {
-      const nextState = applyMove(state, move.boardIndex, move.cellIndex);
-      bestScore = Math.max(
-        bestScore,
-        minimax(nextState, depth + 1, false, computer, human, maxDepth),
-      );
-    }
-
-    return bestScore;
-  }
-
-  let bestScore = Number.POSITIVE_INFINITY;
-
-  for (const move of legalMoves) {
-    const nextState = applyMove(state, move.boardIndex, move.cellIndex);
-    bestScore = Math.min(
-      bestScore,
-      minimax(nextState, depth + 1, true, computer, human, maxDepth),
-    );
-  }
-
-  return bestScore;
 }
 
 export function cloneState(state) {
@@ -291,53 +230,92 @@ function findMoveByOutcome(state, legalMoves, player, outcome) {
   });
 }
 
-function findSmallBoardForkBlockMove(state, legalMoves, computer, human) {
-  return legalMoves.find((move) => {
-    const board = state.boards[move.boardIndex];
+function scoreUltimateMove(state, move, computer, human) {
+  const nextState = applyMove(state, move.boardIndex, move.cellIndex);
+  const boardBefore = state.boards[move.boardIndex];
+  const boardAfter = nextState.boards[move.boardIndex];
+  let score = 0;
 
-    if (move.cellIndex !== CENTER_CELL && !EDGE_CELLS.includes(move.cellIndex)) {
-      return false;
-    }
+  if (nextState.winner === computer) {
+    return 10000;
+  }
 
-    const hasComputerCenter = board.cells[CENTER_CELL] === computer;
-    const hasHumanOppositeCorners =
-      (board.cells[0] === human && board.cells[8] === human) ||
-      (board.cells[2] === human && board.cells[6] === human);
+  if (!boardBefore.winner && boardAfter.winner === computer) {
+    score += 900;
+  }
 
-    return hasComputerCenter && hasHumanOppositeCorners && EDGE_CELLS.includes(move.cellIndex);
-  });
+  score += scoreMacroPosition(nextState, computer, human);
+  score += scoreSmallBoard(boardAfter, computer, human);
+
+  if (move.cellIndex === CENTER_CELL) {
+    score += 12;
+  }
+
+  if (CORNER_CELLS.includes(move.cellIndex)) {
+    score += 6;
+  }
+
+  score += scoreSentBoard(nextState, move.cellIndex, computer, human);
+
+  if (nextState.forcedBoard === null && !nextState.winner && !nextState.draw) {
+    score -= 30;
+  }
+
+  return score;
 }
 
-function evaluateState(state, computer, human) {
+function scoreMacroPosition(state, computer, human) {
   const macroCells = state.boards.map((board) => board.winner);
-  let score = evaluateLines(macroCells, computer, human) * 18;
+  return evaluateLines(macroCells, computer, human) * 120;
+}
 
-  for (const board of state.boards) {
-    if (board.winner === computer) {
-      score += 28;
-      continue;
-    }
-
-    if (board.winner === human) {
-      score -= 28;
-      continue;
-    }
-
-    if (!board.full) {
-      score += evaluateLines(board.cells, computer, human);
-      if (board.cells[CENTER_CELL] === computer) {
-        score += 2;
-      }
-      if (board.cells[CENTER_CELL] === human) {
-        score -= 2;
-      }
-    }
+function scoreSmallBoard(board, computer, human) {
+  if (board.winner === computer) {
+    return 180;
   }
 
-  const availableBoards = getAvailableBoards(state);
-  if (availableBoards.length > 1) {
-    score += state.currentPlayer === computer ? 4 : -4;
+  if (board.winner === human) {
+    return -180;
   }
+
+  if (board.full) {
+    return 0;
+  }
+
+  let score = evaluateLines(board.cells, computer, human) * 5;
+
+  if (board.cells[CENTER_CELL] === computer) {
+    score += 10;
+  }
+
+  if (board.cells[CENTER_CELL] === human) {
+    score -= 10;
+  }
+
+  return score;
+}
+
+function scoreSentBoard(state, targetBoardIndex, computer, human) {
+  const targetBoard = state.boards[targetBoardIndex];
+
+  if (!targetBoard || !isBoardPlayable(targetBoard)) {
+    return -24;
+  }
+
+  const humanCanWinTarget = findWinningCell(targetBoard.cells, human) !== null;
+  const computerCanWinTarget = findWinningCell(targetBoard.cells, computer) !== null;
+  let score = 0;
+
+  if (humanCanWinTarget) {
+    score -= 260;
+  }
+
+  if (computerCanWinTarget) {
+    score += 80;
+  }
+
+  score -= Math.max(0, evaluateLines(targetBoard.cells, human, computer)) * 3;
+  score += Math.max(0, evaluateLines(targetBoard.cells, computer, human));
 
   return score;
 }
@@ -375,47 +353,18 @@ function evaluateLines(cells, computer, human) {
   }, 0);
 }
 
-function orderMoves(state, legalMoves, computer, human) {
-  return [...legalMoves].sort((a, b) => {
-    return (
-      scoreMoveForOrdering(state, b, computer, human) -
-      scoreMoveForOrdering(state, a, computer, human)
-    );
-  });
-}
+function findWinningCell(cells, player) {
+  for (const line of WIN_LINES) {
+    const values = line.map((index) => cells[index]);
+    const playerCount = values.filter((value) => value === player).length;
+    const emptyCells = line.filter((index) => !cells[index]);
 
-function scoreMoveForOrdering(state, move, computer, human) {
-  let score = 0;
-  const board = state.boards[move.boardIndex];
-  const cells = [...board.cells];
-  cells[move.cellIndex] = state.currentPlayer;
-  const smallWinner = getWinner(cells).winner;
-
-  if (smallWinner === computer) {
-    score += 80;
-  }
-  if (smallWinner === human) {
-    score += 70;
-  }
-  if (move.cellIndex === CENTER_CELL) {
-    score += 8;
-  }
-  if (CORNER_CELLS.includes(move.cellIndex)) {
-    score += 4;
-  }
-  if (state.boards[move.cellIndex] && !isBoardPlayable(state.boards[move.cellIndex])) {
-    score += 6;
+    if (playerCount === 2 && emptyCells.length === 1) {
+      return emptyCells[0];
+    }
   }
 
-  return score;
-}
-
-function normalizeHeuristicScore(score) {
-  if (score === 0) {
-    return 0;
-  }
-
-  return Math.max(-9, Math.min(9, score / 60));
+  return null;
 }
 
 function isValidIndex(index) {
