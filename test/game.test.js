@@ -7,6 +7,8 @@ import {
   canPlayMove,
   createInitialState,
   getAvailableBoards,
+  getComputerMove,
+  getLegalMoves,
   getWinner,
 } from "../src/game.js";
 
@@ -149,5 +151,44 @@ test("winner helper returns line details", () => {
   assert.deepEqual(
     getWinner([PLAYERS.O, null, null, PLAYERS.O, null, null, PLAYERS.O, null, null]),
     { winner: PLAYERS.O, line: [0, 3, 6] },
+  );
+});
+
+test("computer move wins the macro board when possible", () => {
+  const state = createInitialState();
+  state.currentPlayer = PLAYERS.O;
+  state.boards[0].winner = PLAYERS.O;
+  state.boards[1].winner = PLAYERS.O;
+  state.boards[2].cells = [PLAYERS.O, PLAYERS.O, null, null, null, null, null, null, null];
+
+  assert.deepEqual(getComputerMove(state), { boardIndex: 2, cellIndex: 2 });
+});
+
+test("computer move blocks a human macro win", () => {
+  const state = createInitialState();
+  state.currentPlayer = PLAYERS.O;
+  state.boards[0].winner = PLAYERS.X;
+  state.boards[1].winner = PLAYERS.X;
+  state.boards[2].cells = [PLAYERS.X, PLAYERS.X, null, null, null, null, null, null, null];
+
+  assert.deepEqual(getComputerMove(state), { boardIndex: 2, cellIndex: 2 });
+});
+
+test("computer move prefers a legal center cell", () => {
+  const state = applyMove(createInitialState(), 0, 4);
+
+  assert.deepEqual(getComputerMove(state), { boardIndex: 4, cellIndex: 4 });
+});
+
+test("computer move always returns a legal move", () => {
+  const state = applyMove(createInitialState(), 4, 0);
+  const move = getComputerMove(state);
+
+  assert.equal(
+    getLegalMoves(state).some(
+      (legalMove) =>
+        legalMove.boardIndex === move.boardIndex && legalMove.cellIndex === move.cellIndex,
+    ),
+    true,
   );
 });

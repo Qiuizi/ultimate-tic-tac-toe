@@ -104,6 +104,7 @@ h1 {
 }
 
 .status-card,
+.mode-card,
 .notice-card,
 .scoreboard,
 .rule-notes {
@@ -171,6 +172,52 @@ h1 {
   color: #475467;
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.mode-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.mode-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mode-button {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-weight: 850;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.mode-button:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px rgb(52 64 84 / 10%);
+}
+
+.mode-button.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: #0f7a53;
 }
 
 .scoreboard {

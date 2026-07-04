@@ -26,6 +26,9 @@ export const BOARD_NAMES = [
   "右下",
 ];
 
+export const CENTER_CELL = 4;
+export const CORNER_CELLS = [0, 2, 6, 8];
+
 export function createInitialState() {
   return {
     boards: Array.from({ length: 9 }, () => createSmallBoard()),
@@ -101,6 +104,14 @@ export function canPlayMove(state, boardIndex, cellIndex) {
   return !board.cells[cellIndex];
 }
 
+export function getLegalMoves(state) {
+  return getAvailableBoards(state).flatMap((boardIndex) =>
+    state.boards[boardIndex].cells
+      .map((cell, cellIndex) => (cell ? null : { boardIndex, cellIndex }))
+      .filter(Boolean),
+  );
+}
+
 export function applyMove(state, boardIndex, cellIndex) {
   if (!canPlayMove(state, boardIndex, cellIndex)) {
     return state;
@@ -144,6 +155,24 @@ export function applyMove(state, boardIndex, cellIndex) {
   return nextState;
 }
 
+export function getComputerMove(state, computer = PLAYERS.O, human = PLAYERS.X) {
+  const legalMoves = getLegalMoves(state);
+
+  if (legalMoves.length === 0) {
+    return null;
+  }
+
+  return (
+    findMoveByOutcome(state, legalMoves, computer, "macro-win") ||
+    findMoveByOutcome(state, legalMoves, human, "macro-win") ||
+    findMoveByOutcome(state, legalMoves, computer, "small-win") ||
+    findMoveByOutcome(state, legalMoves, human, "small-win") ||
+    legalMoves.find((move) => move.cellIndex === CENTER_CELL) ||
+    legalMoves.find((move) => CORNER_CELLS.includes(move.cellIndex)) ||
+    legalMoves[Math.floor(Math.random() * legalMoves.length)]
+  );
+}
+
 export function cloneState(state) {
   return {
     ...state,
@@ -155,6 +184,33 @@ export function cloneState(state) {
     winningLine: state.winningLine ? [...state.winningLine] : null,
     moveHistory: state.moveHistory.map((move) => ({ ...move })),
   };
+}
+
+function findMoveByOutcome(state, legalMoves, player, outcome) {
+  return legalMoves.find((move) => {
+    const board = state.boards[move.boardIndex];
+    const cells = [...board.cells];
+    cells[move.cellIndex] = player;
+
+    const smallWinner = getWinner(cells).winner;
+    if (outcome === "small-win") {
+      return smallWinner === player;
+    }
+
+    if (outcome === "macro-win") {
+      const macroCells = state.boards.map((smallBoard, index) => {
+        if (index === move.boardIndex && smallWinner) {
+          return smallWinner;
+        }
+
+        return smallBoard.winner;
+      });
+
+      return getWinner(macroCells).winner === player;
+    }
+
+    return false;
+  });
 }
 
 function isValidIndex(index) {

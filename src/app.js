@@ -4,10 +4,16 @@ import {
   canPlayMove,
   createInitialState,
   getAvailableBoards,
+  getComputerMove,
 } from "./game.js";
 
 const app = document.querySelector("#app");
 const SCORE_STORAGE_KEY = "ultimate-tic-tac-toe-score";
+const MODES = {
+  TWO_PLAYER: "two-player",
+  COMPUTER: "computer",
+};
+const COMPUTER_DELAY_MS = 300;
 const EMPTY_SCORE = {
   X: 0,
   O: 0,
@@ -18,6 +24,9 @@ let state = createInitialState();
 let history = [state];
 let score = loadScore();
 let lastScoredGame = null;
+let gameMode = MODES.TWO_PLAYER;
+let computerTimer = null;
+let isComputerThinking = false;
 
 function render() {
   const availableBoards = getAvailableBoards(state);
@@ -39,6 +48,7 @@ function render() {
       <section class="play-area">
         <aside class="control-panel" aria-label="对局信息">
           ${renderStatusCard(statusText, gameResult)}
+          ${renderModeSelector()}
           ${renderReleasedTargetNotice(releasedTarget)}
           ${renderScoreboard()}
           ${renderActions(gameResult)}
@@ -90,6 +100,22 @@ function renderStatusCard(statusText, gameResult) {
   `;
 }
 
+function renderModeSelector() {
+  return `
+    <section class="mode-card" aria-label="游戏模式">
+      <span class="mode-label">游戏模式</span>
+      <div class="mode-toggle" role="group" aria-label="选择游戏模式">
+        <button class="mode-button ${gameMode === MODES.TWO_PLAYER ? "is-active" : ""}" type="button" data-mode="${MODES.TWO_PLAYER}">
+          两人对战
+        </button>
+        <button class="mode-button ${gameMode === MODES.COMPUTER ? "is-active" : ""}" type="button" data-mode="${MODES.COMPUTER}">
+          人机对战
+        </button>
+      </div>
+    </section>
+  `;
+}
+
 function renderReleasedTargetNotice(releasedTarget) {
   if (!releasedTarget) {
     return "";
@@ -123,9 +149,11 @@ function renderScoreboard() {
 }
 
 function renderActions(gameResult) {
+  const undoDisabled = history.length <= 1 || gameResult || gameMode === MODES.COMPUTER;
+
   return `
     <nav class="actions" aria-label="游戏操作">
-      <button class="action-button" type="button" data-action="undo" ${history.length <= 1 || gameResult ? "disabled" : ""}>
+      <button class="action-button" type="button" data-action="undo" ${undoDisabled ? "disabled" : ""}>
         <span aria-hidden="true">↶</span>
         悔棋
       </button>
@@ -181,7 +209,7 @@ function renderSmallBoard(board, boardIndex, boardState) {
 }
 
 function renderCell(board, boardIndex, cell, cellIndex) {
-  const playable = canPlayMove(state, boardIndex, cellIndex);
+  const playable = canPlayMove(state, boardIndex, cellIndex) && !isComputerThinking;
   const winCell = board.winningLine?.includes(cellIndex) ? " is-small-win" : "";
   const latestMove = state.moveHistory.at(-1);
   const isLatestMove =
@@ -204,6 +232,13 @@ function renderCell(board, boardIndex, cell, cellIndex) {
 
 function getStatusText(availableBoards) {
   if (state.winner) {
+    if (gameMode === MODES.COMPUTER) {
+      return {
+        title: state.winner === "X" ? "玩家获胜" : "电脑获胜",
+        detail: `大棋盘${state.winningLine.map((index) => BOARD_NAMES[index]).join("、")}三连完成`,
+      };
+    }
+
     return {
       title: `${state.winner} 获胜`,
       detail: `大棋盘${state.winningLine.map((index) => BOARD_NAMES[index]).join("、")}三连完成`,
@@ -214,6 +249,23 @@ function getStatusText(availableBoards) {
     return {
       title: "平局",
       detail: "所有可用小棋盘均已结束",
+    };
+  }
+
+  if (isComputerThinking) {
+    return {
+      title: "电脑思考中",
+      detail: "电脑正在选择一个合法落点",
+    };
+  }
+
+  if (gameMode === MODES.COMPUTER) {
+    return {
+      title: "轮到玩家",
+      detail:
+        availableBoards.length === 1 && state.forcedBoard !== null
+          ? `你必须下在${BOARD_NAMES[availableBoards[0]]}区域`
+          : "你可以选择任意未结束区域",
     };
   }
 
@@ -243,6 +295,10 @@ function getConstraintText(availableBoards, releasedTarget = getReleasedTarget()
     return "对局已结束";
   }
 
+  if (isComputerThinking) {
+    return "电脑思考中，请稍候";
+  }
+
   if (availableBoards.length === 1 && state.forcedBoard !== null) {
     return `强制区域：${BOARD_NAMES[availableBoards[0]]}`;
   }
@@ -261,11 +317,15 @@ app.addEventListener("click", (event) => {
   }
 
   const action = target.dataset.action;
+  const mode = target.dataset.mode;
+
+  if (mode) {
+    setGameMode(mode);
+    return;
+  }
+
   if (action === "restart") {
-    state = createInitialState();
-    history = [state];
-    lastScoredGame = null;
-    render();
+    resetRound();
     return;
   }
 
@@ -277,7 +337,7 @@ app.addEventListener("click", (event) => {
   }
 
   if (action === "undo") {
-    if (history.length > 1 && !getGameResult()) {
+    if (history.length > 1 && !getGameResult() && gameMode === MODES.TWO_PLAYER) {
       history.pop();
       state = history[history.length - 1];
       render();
@@ -289,6 +349,10 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  if (isComputerThinking || (gameMode === MODES.COMPUTER && state.currentPlayer === "O")) {
+    return;
+  }
+
   const boardIndex = Number(target.dataset.board);
   const cellIndex = Number(target.dataset.cell);
   const nextState = applyMove(state, boardIndex, cellIndex);
@@ -297,8 +361,65 @@ app.addEventListener("click", (event) => {
     state = nextState;
     history.push(state);
     render();
+    scheduleComputerMove();
   }
 });
+
+function setGameMode(nextMode) {
+  if (!Object.values(MODES).includes(nextMode) || nextMode === gameMode) {
+    return;
+  }
+
+  gameMode = nextMode;
+  resetRound();
+}
+
+function resetRound() {
+  clearComputerTimer();
+  state = createInitialState();
+  history = [state];
+  lastScoredGame = null;
+  isComputerThinking = false;
+  render();
+}
+
+function scheduleComputerMove() {
+  if (
+    gameMode !== MODES.COMPUTER ||
+    state.currentPlayer !== "O" ||
+    state.winner ||
+    state.draw
+  ) {
+    return;
+  }
+
+  clearComputerTimer();
+  isComputerThinking = true;
+  render();
+
+  computerTimer = setTimeout(() => {
+    const move = getComputerMove(state);
+    isComputerThinking = false;
+
+    if (move) {
+      const nextState = applyMove(state, move.boardIndex, move.cellIndex);
+      if (nextState !== state) {
+        state = nextState;
+        history.push(state);
+      }
+    }
+
+    computerTimer = null;
+    render();
+  }, COMPUTER_DELAY_MS);
+}
+
+function clearComputerTimer() {
+  if (computerTimer) {
+    clearTimeout(computerTimer);
+    computerTimer = null;
+  }
+}
 
 function getCapturedCount() {
   return state.boards.filter((board) => board.winner || board.full).length;
