@@ -71,6 +71,20 @@ test("macro board win ends the game", () => {
   assert.equal(getAvailableBoards(next).length, 0);
 });
 
+test("macro board win works for O", () => {
+  const state = createInitialState();
+  state.currentPlayer = PLAYERS.O;
+  state.boards[0].winner = PLAYERS.O;
+  state.boards[4].winner = PLAYERS.O;
+  state.boards[8].cells = [PLAYERS.O, PLAYERS.O, null, null, null, null, null, null, null];
+
+  const next = applyMove(state, 8, 2);
+
+  assert.equal(next.winner, PLAYERS.O);
+  assert.deepEqual(next.winningLine, [0, 4, 8]);
+  assert.equal(getAvailableBoards(next).length, 0);
+});
+
 test("game rejects moves after a macro win", () => {
   const state = createInitialState();
   state.boards[0].winner = PLAYERS.X;
