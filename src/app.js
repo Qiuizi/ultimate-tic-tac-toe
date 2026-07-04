@@ -29,6 +29,8 @@ let gameMode = MODES.TWO_PLAYER;
 let aiDifficulty = AI_DIFFICULTIES.NORMAL;
 let computerTimer = null;
 let isComputerThinking = false;
+let feedbackMessage = "";
+let feedbackTimer = null;
 
 function render() {
   const availableBoards = getAvailableBoards(state);
@@ -59,7 +61,7 @@ function render() {
         </aside>
 
         <section class="board-wrap">
-          <div class="macro-board" role="grid" aria-label="大棋盘">
+          <div class="macro-board ${isComputerThinking ? "is-thinking" : ""}" role="grid" aria-label="大棋盘">
             ${state.boards
               .map((board, boardIndex) =>
                 renderSmallBoard(board, boardIndex, {
@@ -80,6 +82,7 @@ function render() {
         <span>${getConstraintText(availableBoards, releasedTarget)}</span>
         <span>已占领 ${getCapturedCount()} / 9 个小棋盘</span>
       </footer>
+      ${feedbackMessage ? `<div class="feedback-toast" role="status">${feedbackMessage}</div>` : ""}
     </section>
   `;
 }
@@ -233,6 +236,7 @@ function renderSmallBoard(board, boardIndex, boardState) {
 
 function renderCell(board, boardIndex, cell, cellIndex) {
   const playable = canPlayMove(state, boardIndex, cellIndex) && !isComputerThinking;
+  const disabledReason = getCellDisabledReason(boardIndex, cellIndex);
   const winCell = board.winningLine?.includes(cellIndex) ? " is-small-win" : "";
   const latestMove = state.moveHistory.at(-1);
   const isLatestMove =
@@ -241,12 +245,13 @@ function renderCell(board, boardIndex, cell, cellIndex) {
 
   return `
     <button
-      class="cell${cell ? " is-filled" : ""}${winCell}${latestMoveClass}"
+      class="cell${cell ? " is-filled" : ""}${winCell}${latestMoveClass}${playable ? "" : " is-disabled"}"
       type="button"
       data-board="${boardIndex}"
       data-cell="${cellIndex}"
+      data-disabled-reason="${disabledReason}"
       aria-label="${BOARD_NAMES[boardIndex]}小棋盘，第 ${cellIndex + 1} 格${cell ? `，${cell}` : ""}"
-      ${playable ? "" : "disabled"}
+      aria-disabled="${playable ? "false" : "true"}"
     >
       <span class="${cell ? `player-${cell.toLowerCase()}` : ""}">${cell || ""}</span>
     </button>
@@ -379,11 +384,22 @@ app.addEventListener("click", (event) => {
   }
 
   if (isComputerThinking || (gameMode === MODES.COMPUTER && state.currentPlayer === "O")) {
+    showFeedback("电脑思考中，请稍候。");
+    return;
+  }
+
+  if (state.winner || state.draw) {
+    showFeedback("本局已经结束，请重新开始。");
     return;
   }
 
   const boardIndex = Number(target.dataset.board);
   const cellIndex = Number(target.dataset.cell);
+  if (!canPlayMove(state, boardIndex, cellIndex)) {
+    showFeedback(target.dataset.disabledReason || "这里暂时不能落子。");
+    return;
+  }
+
   const nextState = applyMove(state, boardIndex, cellIndex);
 
   if (nextState !== state) {
@@ -400,6 +416,7 @@ function setGameMode(nextMode) {
   }
 
   gameMode = nextMode;
+  showFeedback("已切换模式，当前棋局已重置。");
   resetRound();
 }
 
@@ -412,6 +429,7 @@ function setAiDifficulty(nextDifficulty) {
   }
 
   aiDifficulty = nextDifficulty;
+  showFeedback("已切换 AI 难度，当前棋局已重置。");
   resetRound();
 }
 
@@ -474,6 +492,51 @@ function clearComputerTimer() {
     clearTimeout(computerTimer);
     computerTimer = null;
   }
+}
+
+function getCellDisabledReason(boardIndex, cellIndex) {
+  if (isComputerThinking || (gameMode === MODES.COMPUTER && state.currentPlayer === "O")) {
+    return "电脑思考中，请稍候。";
+  }
+
+  if (state.winner || state.draw) {
+    return "本局已经结束，请重新开始。";
+  }
+
+  const board = state.boards[boardIndex];
+  if (!board || board.winner) {
+    return "这个小棋盘已经被占领。";
+  }
+
+  if (board.full) {
+    return "这个小棋盘已经下满。";
+  }
+
+  if (board.cells[cellIndex]) {
+    return "这个格子已经有棋子了。";
+  }
+
+  if (!getAvailableBoards(state).includes(boardIndex)) {
+    return state.forcedBoard === null
+      ? "请选择一个未结束的小棋盘。"
+      : `当前必须下在${BOARD_NAMES[state.forcedBoard]}区域。`;
+  }
+
+  return "";
+}
+
+function showFeedback(message) {
+  feedbackMessage = message;
+  if (feedbackTimer) {
+    clearTimeout(feedbackTimer);
+  }
+
+  feedbackTimer = setTimeout(() => {
+    feedbackMessage = "";
+    feedbackTimer = null;
+    render();
+  }, 1800);
+  render();
 }
 
 function getCapturedCount() {
