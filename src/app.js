@@ -7,13 +7,16 @@ import {
 } from "./game.js";
 
 const app = document.querySelector("#app");
-let state = createInitialState();
-let history = [state];
-let score = {
+const SCORE_STORAGE_KEY = "ultimate-tic-tac-toe-score";
+const EMPTY_SCORE = {
   X: 0,
   O: 0,
   draw: 0,
 };
+
+let state = createInitialState();
+let history = [state];
+let score = loadScore();
 let lastScoredGame = null;
 
 function render() {
@@ -267,7 +270,8 @@ app.addEventListener("click", (event) => {
   }
 
   if (action === "reset-score") {
-    score = { X: 0, O: 0, draw: 0 };
+    score = { ...EMPTY_SCORE };
+    saveScore(score);
     render();
     return;
   }
@@ -343,7 +347,30 @@ function recordFinishedGame(gameResult) {
   }
 
   score[gameResult] += 1;
+  saveScore(score);
   lastScoredGame = gameResult;
+}
+
+function loadScore() {
+  try {
+    const storedScore = JSON.parse(localStorage.getItem(SCORE_STORAGE_KEY));
+
+    return {
+      X: Number.isInteger(storedScore?.X) ? storedScore.X : 0,
+      O: Number.isInteger(storedScore?.O) ? storedScore.O : 0,
+      draw: Number.isInteger(storedScore?.draw) ? storedScore.draw : 0,
+    };
+  } catch {
+    return { ...EMPTY_SCORE };
+  }
+}
+
+function saveScore(nextScore) {
+  try {
+    localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(nextScore));
+  } catch {
+    // Score persistence is optional; the game remains playable if storage is blocked.
+  }
 }
 
 render();
