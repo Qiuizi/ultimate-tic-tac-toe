@@ -19,6 +19,7 @@ let lastScoredGame = null;
 function render() {
   const availableBoards = getAvailableBoards(state);
   const statusText = getStatusText(availableBoards);
+  const releasedTarget = getReleasedTarget();
   const gameResult = getGameResult();
   recordFinishedGame(gameResult);
 
@@ -35,6 +36,7 @@ function render() {
       <section class="play-area">
         <aside class="control-panel" aria-label="对局信息">
           ${renderStatusCard(statusText, gameResult)}
+          ${renderReleasedTargetNotice(releasedTarget)}
           ${renderScoreboard()}
           ${renderActions(gameResult)}
           ${renderRuleNotes()}
@@ -59,7 +61,7 @@ function render() {
 
       <footer class="info-strip" aria-live="polite">
         <span>步数 ${state.moveHistory.length}</span>
-        <span>${getConstraintText(availableBoards)}</span>
+        <span>${getConstraintText(availableBoards, releasedTarget)}</span>
         <span>已占领 ${getCapturedCount()} / 9 个小棋盘</span>
       </footer>
     </section>
@@ -81,6 +83,19 @@ function renderStatusCard(statusText, gameResult) {
         <p class="status-title">${statusText.title}</p>
         <p class="status-detail">${statusText.detail}</p>
       </div>
+    </section>
+  `;
+}
+
+function renderReleasedTargetNotice(releasedTarget) {
+  if (!releasedTarget) {
+    return "";
+  }
+
+  return `
+    <section class="notice-card" aria-live="polite">
+      <strong>目标区域已结束</strong>
+      <span>上一手指向${BOARD_NAMES[releasedTarget.index]}区域，但该区域${releasedTarget.reason}，所以本回合可自由选择。</span>
     </section>
   `;
 }
@@ -206,19 +221,31 @@ function getStatusText(availableBoards) {
     };
   }
 
+  const releasedTarget = getReleasedTarget();
+  if (releasedTarget) {
+    return {
+      title: `${state.currentPlayer} 回合`,
+      detail: `${BOARD_NAMES[releasedTarget.index]}区域${releasedTarget.reason}，可选择任意未结束区域`,
+    };
+  }
+
   return {
     title: `${state.currentPlayer} 回合`,
     detail: "可选择任意未结束区域",
   };
 }
 
-function getConstraintText(availableBoards) {
+function getConstraintText(availableBoards, releasedTarget = getReleasedTarget()) {
   if (state.winner || state.draw) {
     return "对局已结束";
   }
 
   if (availableBoards.length === 1 && state.forcedBoard !== null) {
     return `强制区域：${BOARD_NAMES[availableBoards[0]]}`;
+  }
+
+  if (releasedTarget) {
+    return `原目标：${BOARD_NAMES[releasedTarget.index]}${releasedTarget.reason}`;
   }
 
   return "自由选择：目标区域已结束或首步";
@@ -271,6 +298,31 @@ app.addEventListener("click", (event) => {
 
 function getCapturedCount() {
   return state.boards.filter((board) => board.winner || board.full).length;
+}
+
+function getReleasedTarget() {
+  if (state.winner || state.draw || state.forcedBoard !== null || state.moveHistory.length === 0) {
+    return null;
+  }
+
+  const lastMove = state.moveHistory.at(-1);
+  const targetBoard = state.boards[lastMove.cellIndex];
+
+  if (targetBoard.winner) {
+    return {
+      index: lastMove.cellIndex,
+      reason: `已被 ${targetBoard.winner} 占领`,
+    };
+  }
+
+  if (targetBoard.full) {
+    return {
+      index: lastMove.cellIndex,
+      reason: "已下满",
+    };
+  }
+
+  return null;
 }
 
 function getGameResult() {
