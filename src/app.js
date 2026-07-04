@@ -13,7 +13,7 @@ const MODES = {
   TWO_PLAYER: "two-player",
   COMPUTER: "computer",
 };
-const COMPUTER_DELAY_MS = 300;
+const COMPUTER_DELAY_MS = 650;
 const EMPTY_SCORE = {
   X: 0,
   O: 0,
@@ -254,7 +254,7 @@ function getStatusText(availableBoards) {
 
   if (isComputerThinking) {
     return {
-      title: "电脑思考中",
+      title: "电脑思考中...",
       detail: "电脑正在选择一个合法落点",
     };
   }
@@ -296,7 +296,7 @@ function getConstraintText(availableBoards, releasedTarget = getReleasedTarget()
   }
 
   if (isComputerThinking) {
-    return "电脑思考中，请稍候";
+    return "电脑思考中...请稍候";
   }
 
   if (availableBoards.length === 1 && state.forcedBoard !== null) {
@@ -395,9 +395,23 @@ function scheduleComputerMove() {
 
   clearComputerTimer();
   isComputerThinking = true;
+  const scheduledHistoryLength = history.length;
   render();
 
   computerTimer = setTimeout(() => {
+    if (
+      gameMode !== MODES.COMPUTER ||
+      history.length !== scheduledHistoryLength ||
+      state.currentPlayer !== "O" ||
+      state.winner ||
+      state.draw
+    ) {
+      isComputerThinking = false;
+      computerTimer = null;
+      render();
+      return;
+    }
+
     const move = getComputerMove(state);
     isComputerThinking = false;
 
