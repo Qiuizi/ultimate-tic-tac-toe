@@ -9,54 +9,125 @@ import {
 const app = document.querySelector("#app");
 let state = createInitialState();
 let history = [state];
+let score = {
+  X: 0,
+  O: 0,
+  draw: 0,
+};
+let lastScoredGame = null;
 
 function render() {
   const availableBoards = getAvailableBoards(state);
   const statusText = getStatusText(availableBoards);
+  const gameResult = getGameResult();
+  recordFinishedGame(gameResult);
 
   app.innerHTML = `
     <section class="game-layout" aria-label="终极井字棋">
-      <header class="top-panel">
-        <div>
+      <header class="site-header">
+        <div class="brand-block">
           <p class="eyebrow">Ultimate Tic-Tac-Toe</p>
           <h1>终极井字棋</h1>
+          <p class="tagline">九个小棋盘互相牵制，把普通三连变成一场位置博弈。</p>
         </div>
-        <div class="status-card ${state.winner ? "is-final" : ""}">
-          <span class="turn-mark player-${state.currentPlayer.toLowerCase()}">${state.winner || state.currentPlayer}</span>
-          <div>
-            <p class="status-title">${statusText.title}</p>
-            <p class="status-detail">${statusText.detail}</p>
-          </div>
-        </div>
-        <nav class="actions" aria-label="游戏操作">
-          <button class="icon-button" type="button" data-action="undo" title="悔棋" aria-label="悔棋" ${history.length <= 1 ? "disabled" : ""}>
-            <span aria-hidden="true">↶</span>
-          </button>
-          <button class="icon-button" type="button" data-action="restart" title="重新开始" aria-label="重新开始">
-            <span aria-hidden="true">↻</span>
-          </button>
-        </nav>
       </header>
 
-      <section class="board-wrap">
-        <div class="macro-board" role="grid" aria-label="大棋盘">
-          ${state.boards
-            .map((board, boardIndex) =>
-              renderSmallBoard(board, boardIndex, {
-                isAvailable: availableBoards.includes(boardIndex),
-                isForced:
-                  state.forcedBoard === boardIndex && availableBoards.includes(boardIndex),
-                isFreeChoice: state.forcedBoard === null && availableBoards.includes(boardIndex),
-              }),
-            )
-            .join("")}
-        </div>
+      <section class="play-area">
+        <aside class="control-panel" aria-label="对局信息">
+          ${renderStatusCard(statusText, gameResult)}
+          ${renderScoreboard()}
+          ${renderActions(gameResult)}
+          ${renderRuleNotes()}
+        </aside>
+
+        <section class="board-wrap">
+          <div class="macro-board" role="grid" aria-label="大棋盘">
+            ${state.boards
+              .map((board, boardIndex) =>
+                renderSmallBoard(board, boardIndex, {
+                  isAvailable: availableBoards.includes(boardIndex),
+                  isForced:
+                    state.forcedBoard === boardIndex && availableBoards.includes(boardIndex),
+                  isFreeChoice:
+                    state.forcedBoard === null && availableBoards.includes(boardIndex),
+                }),
+              )
+              .join("")}
+          </div>
+        </section>
       </section>
 
       <footer class="info-strip" aria-live="polite">
         <span>步数 ${state.moveHistory.length}</span>
         <span>${getConstraintText(availableBoards)}</span>
+        <span>已占领 ${getCapturedCount()} / 9 个小棋盘</span>
       </footer>
+    </section>
+  `;
+}
+
+function renderStatusCard(statusText, gameResult) {
+  const mark = state.winner || (state.draw ? "平" : state.currentPlayer);
+  const markClass = state.winner
+    ? `player-${state.winner.toLowerCase()}`
+    : state.draw
+      ? "player-draw"
+      : `player-${state.currentPlayer.toLowerCase()}`;
+
+  return `
+    <section class="status-card ${gameResult ? "is-final" : ""}" aria-live="polite">
+      <span class="turn-mark ${markClass}">${mark}</span>
+      <div>
+        <p class="status-title">${statusText.title}</p>
+        <p class="status-detail">${statusText.detail}</p>
+      </div>
+    </section>
+  `;
+}
+
+function renderScoreboard() {
+  return `
+    <section class="scoreboard" aria-label="比分">
+      <div class="score-card score-x">
+        <span class="score-label">X</span>
+        <strong>${score.X}</strong>
+      </div>
+      <div class="score-card score-o">
+        <span class="score-label">O</span>
+        <strong>${score.O}</strong>
+      </div>
+      <div class="score-card">
+        <span class="score-label">平局</span>
+        <strong>${score.draw}</strong>
+      </div>
+    </section>
+  `;
+}
+
+function renderActions(gameResult) {
+  return `
+    <nav class="actions" aria-label="游戏操作">
+      <button class="action-button" type="button" data-action="undo" ${history.length <= 1 || gameResult ? "disabled" : ""}>
+        <span aria-hidden="true">↶</span>
+        悔棋
+      </button>
+      <button class="action-button primary" type="button" data-action="restart">
+        <span aria-hidden="true">↻</span>
+        重新开始
+      </button>
+      <button class="action-button subtle" type="button" data-action="reset-score">
+        清空比分
+      </button>
+    </nav>
+  `;
+}
+
+function renderRuleNotes() {
+  return `
+    <section class="rule-notes" aria-label="规则提示">
+      <h2>当前规则</h2>
+      <p>你在小棋盘中点击的位置，会决定对手下一步必须进入的大区域。</p>
+      <p>如果目标区域已经结束，对手可以自由选择任意未结束区域。</p>
     </section>
   `;
 }
@@ -113,7 +184,7 @@ function getStatusText(availableBoards) {
   if (state.winner) {
     return {
       title: `${state.winner} 获胜`,
-      detail: "大棋盘三连完成",
+      detail: `大棋盘${state.winningLine.map((index) => BOARD_NAMES[index]).join("、")}三连完成`,
     };
   }
 
@@ -159,12 +230,19 @@ app.addEventListener("click", (event) => {
   if (action === "restart") {
     state = createInitialState();
     history = [state];
+    lastScoredGame = null;
+    render();
+    return;
+  }
+
+  if (action === "reset-score") {
+    score = { X: 0, O: 0, draw: 0 };
     render();
     return;
   }
 
   if (action === "undo") {
-    if (history.length > 1) {
+    if (history.length > 1 && !getGameResult()) {
       history.pop();
       state = history[history.length - 1];
       render();
@@ -186,5 +264,30 @@ app.addEventListener("click", (event) => {
     render();
   }
 });
+
+function getCapturedCount() {
+  return state.boards.filter((board) => board.winner || board.full).length;
+}
+
+function getGameResult() {
+  if (state.winner) {
+    return state.winner;
+  }
+
+  if (state.draw) {
+    return "draw";
+  }
+
+  return null;
+}
+
+function recordFinishedGame(gameResult) {
+  if (!gameResult || lastScoredGame === gameResult) {
+    return;
+  }
+
+  score[gameResult] += 1;
+  lastScoredGame = gameResult;
+}
 
 render();

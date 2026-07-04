@@ -30,6 +30,14 @@ test("move is rejected outside the forced board", () => {
   assert.equal(applyMove(state, 1, 1), state);
 });
 
+test("move is rejected when the cell is already occupied", () => {
+  const state = createInitialState();
+  state.boards[4].cells[0] = PLAYERS.O;
+
+  assert.equal(canPlayMove(state, 4, 0), false);
+  assert.equal(applyMove(state, 4, 0), state);
+});
+
 test("player can choose freely when the target board is already won", () => {
   const state = createInitialState();
   state.boards[0].winner = PLAYERS.X;
@@ -61,6 +69,66 @@ test("macro board win ends the game", () => {
   assert.equal(next.winner, PLAYERS.X);
   assert.deepEqual(next.winningLine, [0, 1, 2]);
   assert.equal(getAvailableBoards(next).length, 0);
+});
+
+test("game rejects moves after a macro win", () => {
+  const state = createInitialState();
+  state.boards[0].winner = PLAYERS.X;
+  state.boards[1].winner = PLAYERS.X;
+  state.boards[2].cells = [PLAYERS.X, PLAYERS.X, null, null, null, null, null, null, null];
+
+  const won = applyMove(state, 2, 2);
+
+  assert.equal(canPlayMove(won, 3, 0), false);
+  assert.equal(applyMove(won, 3, 0), won);
+});
+
+test("macro draw ends the game when no playable small boards remain", () => {
+  const state = createInitialState();
+  const winners = [
+    PLAYERS.X,
+    PLAYERS.O,
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.O,
+    PLAYERS.O,
+    PLAYERS.O,
+    PLAYERS.X,
+    null,
+  ];
+
+  state.boards.forEach((board, index) => {
+    board.winner = winners[index];
+    board.full = Boolean(winners[index]);
+  });
+  state.boards[8].cells = [
+    PLAYERS.X,
+    PLAYERS.O,
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.O,
+    PLAYERS.O,
+    PLAYERS.O,
+    PLAYERS.X,
+    null,
+  ];
+
+  const next = applyMove(state, 8, 8);
+
+  assert.equal(next.winner, null);
+  assert.equal(next.draw, true);
+  assert.equal(getAvailableBoards(next).length, 0);
+});
+
+test("initial state resets all board and turn data", () => {
+  const state = createInitialState();
+
+  assert.equal(state.currentPlayer, PLAYERS.X);
+  assert.equal(state.forcedBoard, null);
+  assert.equal(state.winner, null);
+  assert.equal(state.draw, false);
+  assert.equal(state.moveHistory.length, 0);
+  assert.equal(state.boards.every((board) => board.cells.every((cell) => cell === null)), true);
 });
 
 test("winner helper returns line details", () => {
