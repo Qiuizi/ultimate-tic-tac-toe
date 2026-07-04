@@ -3,11 +3,15 @@ import assert from "node:assert/strict";
 
 import {
   PLAYERS,
+  AI_DIFFICULTIES,
+  alphaBeta,
   applyMove,
   canPlayMove,
   createInitialState,
+  evaluateGameState,
   getAvailableBoards,
   getComputerMove,
+  getHardComputerMove,
   getLegalMoves,
   getWinner,
 } from "../src/game.js";
@@ -233,4 +237,45 @@ test("computer avoids sending the player to a board with an immediate win", () =
 
   assert.equal(move.boardIndex, 4);
   assert.notEqual(move.cellIndex, 0);
+});
+
+test("hard computer move returns a legal ultimate move", () => {
+  const state = applyMove(createInitialState(), 4, 0);
+  const move = getHardComputerMove(state, PLAYERS.O, PLAYERS.X, {
+    maxDepth: 2,
+    timeLimitMs: 100,
+  });
+
+  assert.equal(
+    getLegalMoves(state).some(
+      (legalMove) =>
+        legalMove.boardIndex === move.boardIndex && legalMove.cellIndex === move.cellIndex,
+    ),
+    true,
+  );
+});
+
+test("hard computer move still takes an immediate macro win", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.boards[0].winner = PLAYERS.O;
+  state.boards[1].winner = PLAYERS.O;
+  state.boards[2].cells = [PLAYERS.O, PLAYERS.O, null, null, null, null, null, null, null];
+
+  assert.deepEqual(getComputerMove(state, PLAYERS.O, PLAYERS.X, AI_DIFFICULTIES.HARD), {
+    boardIndex: 2,
+    cellIndex: 2,
+  });
+});
+
+test("alpha-beta evaluates terminal states and respects shallow depth", () => {
+  const wonState = createInitialState();
+  wonState.winner = PLAYERS.O;
+
+  assert.equal(evaluateGameState(wonState), 100000);
+  assert.equal(
+    Number.isFinite(
+      alphaBeta(createInitialState(PLAYERS.O), 1, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY, true),
+    ),
+    true,
+  );
 });

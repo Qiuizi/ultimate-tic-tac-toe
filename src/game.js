@@ -28,11 +28,17 @@ export const BOARD_NAMES = [
 
 export const CENTER_CELL = 4;
 export const CORNER_CELLS = [0, 2, 6, 8];
+export const AI_DIFFICULTIES = {
+  NORMAL: "normal",
+  HARD: "hard",
+};
+export const HARD_AI_DEPTH = 3;
+export const HARD_AI_TIME_LIMIT_MS = 950;
 
-export function createInitialState() {
+export function createInitialState(currentPlayer = PLAYERS.X) {
   return {
     boards: Array.from({ length: 9 }, () => createSmallBoard()),
-    currentPlayer: PLAYERS.X,
+    currentPlayer,
     forcedBoard: null,
     winner: null,
     winningLine: null,
@@ -155,7 +161,20 @@ export function applyMove(state, boardIndex, cellIndex) {
   return nextState;
 }
 
-export function getComputerMove(state, computer = PLAYERS.O, human = PLAYERS.X) {
+export function getComputerMove(
+  state,
+  computer = PLAYERS.O,
+  human = PLAYERS.X,
+  difficulty = AI_DIFFICULTIES.NORMAL,
+) {
+  if (difficulty === AI_DIFFICULTIES.HARD) {
+    return getHardComputerMove(state, computer, human);
+  }
+
+  return getHeuristicMove(state, computer, human);
+}
+
+export function getHeuristicMove(state, computer = PLAYERS.O, human = PLAYERS.X) {
   const legalMoves = getLegalMoves(state);
 
   if (legalMoves.length === 0) {
@@ -167,6 +186,58 @@ export function getComputerMove(state, computer = PLAYERS.O, human = PLAYERS.X) 
     findMoveByOutcome(state, legalMoves, human, "macro-win") ||
     getBestUltimateMove(state, legalMoves, computer, human)
   );
+}
+
+export function getHardComputerMove(
+  state,
+  computer = PLAYERS.O,
+  human = PLAYERS.X,
+  options = {},
+) {
+  const legalMoves = getLegalMoves(state);
+
+  if (legalMoves.length === 0) {
+    return null;
+  }
+
+  const immediateMove =
+    findMoveByOutcome(state, legalMoves, computer, "macro-win") ||
+    findMoveByOutcome(state, legalMoves, human, "macro-win");
+
+  if (immediateMove) {
+    return immediateMove;
+  }
+
+  const maxDepth = options.maxDepth ?? HARD_AI_DEPTH;
+  const deadline = Date.now() + (options.timeLimitMs ?? HARD_AI_TIME_LIMIT_MS);
+  const orderedMoves = orderMoves(state, legalMoves, computer, human);
+  let bestMove = orderedMoves[0];
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const move of orderedMoves) {
+    if (Date.now() > deadline) {
+      break;
+    }
+
+    const nextState = applyMoveToState(state, move, computer);
+    const score = alphaBeta(
+      nextState,
+      maxDepth - 1,
+      Number.NEGATIVE_INFINITY,
+      Number.POSITIVE_INFINITY,
+      false,
+      computer,
+      human,
+      deadline,
+    );
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = move;
+    }
+  }
+
+  return bestMove;
 }
 
 export function getBestUltimateMove(
@@ -190,6 +261,96 @@ export function getBestUltimateMove(
   return bestMove || legalMoves[0] || null;
 }
 
+export function alphaBeta(
+  state,
+  depth,
+  alpha,
+  beta,
+  isMaximizing,
+  computer = PLAYERS.O,
+  human = PLAYERS.X,
+  deadline = Date.now() + HARD_AI_TIME_LIMIT_MS,
+) {
+  if (state.winner || state.draw || depth === 0 || Date.now() > deadline) {
+    return evaluateGameState(state, computer, human);
+  }
+
+  const legalMoves = orderMoves(state, getLegalMoves(state), computer, human);
+  if (legalMoves.length === 0) {
+    return evaluateGameState(state, computer, human);
+  }
+
+  if (isMaximizing) {
+    let value = Number.NEGATIVE_INFINITY;
+
+    for (const move of legalMoves) {
+      const nextState = applyMoveToState(state, move, computer);
+      value = Math.max(
+        value,
+        alphaBeta(nextState, depth - 1, alpha, beta, false, computer, human, deadline),
+      );
+      alpha = Math.max(alpha, value);
+
+      if (beta <= alpha || Date.now() > deadline) {
+        break;
+      }
+    }
+
+    return value;
+  }
+
+  let value = Number.POSITIVE_INFINITY;
+
+  for (const move of legalMoves) {
+    const nextState = applyMoveToState(state, move, human);
+    value = Math.min(
+      value,
+      alphaBeta(nextState, depth - 1, alpha, beta, true, computer, human, deadline),
+    );
+    beta = Math.min(beta, value);
+
+    if (beta <= alpha || Date.now() > deadline) {
+      break;
+    }
+  }
+
+  return value;
+}
+
+export function evaluateGameState(state, computer = PLAYERS.O, human = PLAYERS.X) {
+  if (state.winner === computer) {
+    return 100000;
+  }
+
+  if (state.winner === human) {
+    return -100000;
+  }
+
+  if (state.draw) {
+    return 0;
+  }
+
+  let score = scoreMacroPosition(state, computer, human);
+
+  for (const board of state.boards) {
+    score += scoreSmallBoard(board, computer, human);
+  }
+
+  const legalMoves = getLegalMoves(state);
+  score += legalMoves.reduce(
+    (total, move) => total + scoreSentBoard(state, move.cellIndex, computer, human) * 0.08,
+    0,
+  );
+
+  return score;
+}
+
+export function applyMoveToState(state, move, player = state.currentPlayer) {
+  const playableState =
+    state.currentPlayer === player ? state : { ...state, currentPlayer: player };
+  return applyMove(playableState, move.boardIndex, move.cellIndex);
+}
+
 export function cloneState(state) {
   return {
     ...state,
@@ -201,6 +362,10 @@ export function cloneState(state) {
     winningLine: state.winningLine ? [...state.winningLine] : null,
     moveHistory: state.moveHistory.map((move) => ({ ...move })),
   };
+}
+
+export function cloneGameState(state) {
+  return cloneState(state);
 }
 
 function findMoveByOutcome(state, legalMoves, player, outcome) {
@@ -316,6 +481,43 @@ function scoreSentBoard(state, targetBoardIndex, computer, human) {
 
   score -= Math.max(0, evaluateLines(targetBoard.cells, human, computer)) * 3;
   score += Math.max(0, evaluateLines(targetBoard.cells, computer, human));
+
+  return score;
+}
+
+function orderMoves(state, legalMoves, computer, human) {
+  return [...legalMoves].sort(
+    (a, b) => scoreMoveForOrdering(state, b, computer, human) - scoreMoveForOrdering(state, a, computer, human),
+  );
+}
+
+function scoreMoveForOrdering(state, move, computer, human) {
+  const legalMoves = [move];
+  let score = scoreUltimateMove(state, move, computer, human);
+
+  if (findMoveByOutcome(state, legalMoves, computer, "macro-win")) {
+    score += 100000;
+  }
+
+  if (findMoveByOutcome(state, legalMoves, human, "macro-win")) {
+    score += 90000;
+  }
+
+  if (findMoveByOutcome(state, legalMoves, computer, "small-win")) {
+    score += 4000;
+  }
+
+  if (findMoveByOutcome(state, legalMoves, human, "small-win")) {
+    score += 2500;
+  }
+
+  if (move.cellIndex === CENTER_CELL) {
+    score += 35;
+  }
+
+  if (CORNER_CELLS.includes(move.cellIndex)) {
+    score += 16;
+  }
 
   return score;
 }

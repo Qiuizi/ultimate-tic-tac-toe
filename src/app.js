@@ -1,5 +1,6 @@
 import {
   BOARD_NAMES,
+  AI_DIFFICULTIES,
   applyMove,
   canPlayMove,
   createInitialState,
@@ -25,6 +26,7 @@ let history = [state];
 let score = loadScore();
 let lastScoredGame = null;
 let gameMode = MODES.TWO_PLAYER;
+let aiDifficulty = AI_DIFFICULTIES.NORMAL;
 let computerTimer = null;
 let isComputerThinking = false;
 
@@ -49,6 +51,7 @@ function render() {
         <aside class="control-panel" aria-label="对局信息">
           ${renderStatusCard(statusText, gameResult)}
           ${renderModeSelector()}
+          ${renderDifficultySelector()}
           ${renderReleasedTargetNotice(releasedTarget)}
           ${renderScoreboard()}
           ${renderActions(gameResult)}
@@ -110,6 +113,26 @@ function renderModeSelector() {
         </button>
         <button class="mode-button ${gameMode === MODES.COMPUTER ? "is-active" : ""}" type="button" data-mode="${MODES.COMPUTER}">
           人机对战
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function renderDifficultySelector() {
+  if (gameMode !== MODES.COMPUTER) {
+    return "";
+  }
+
+  return `
+    <section class="mode-card" aria-label="AI 难度">
+      <span class="mode-label">AI 难度</span>
+      <div class="mode-toggle" role="group" aria-label="选择 AI 难度">
+        <button class="mode-button ${aiDifficulty === AI_DIFFICULTIES.NORMAL ? "is-active" : ""}" type="button" data-difficulty="${AI_DIFFICULTIES.NORMAL}">
+          普通
+        </button>
+        <button class="mode-button ${aiDifficulty === AI_DIFFICULTIES.HARD ? "is-active" : ""}" type="button" data-difficulty="${AI_DIFFICULTIES.HARD}">
+          困难
         </button>
       </div>
     </section>
@@ -318,9 +341,15 @@ app.addEventListener("click", (event) => {
 
   const action = target.dataset.action;
   const mode = target.dataset.mode;
+  const difficulty = target.dataset.difficulty;
 
   if (mode) {
     setGameMode(mode);
+    return;
+  }
+
+  if (difficulty) {
+    setAiDifficulty(difficulty);
     return;
   }
 
@@ -374,6 +403,18 @@ function setGameMode(nextMode) {
   resetRound();
 }
 
+function setAiDifficulty(nextDifficulty) {
+  if (
+    !Object.values(AI_DIFFICULTIES).includes(nextDifficulty) ||
+    nextDifficulty === aiDifficulty
+  ) {
+    return;
+  }
+
+  aiDifficulty = nextDifficulty;
+  resetRound();
+}
+
 function resetRound() {
   clearComputerTimer();
   state = createInitialState();
@@ -412,7 +453,7 @@ function scheduleComputerMove() {
       return;
     }
 
-    const move = getComputerMove(state);
+    const move = getComputerMove(state, "O", "X", aiDifficulty);
     isComputerThinking = false;
 
     if (move) {
