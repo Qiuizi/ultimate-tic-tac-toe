@@ -1,6 +1,6 @@
 # 终极井字棋 Ultimate Tic-Tac-Toe
 
-TODO: 添加游戏截图
+![Ultimate Tic-Tac-Toe Screenshot](./assets/screenshot.png)
 
 一个可在浏览器中运行的 Ultimate Tic-Tac-Toe 小游戏。项目使用原生 HTML、CSS 和 JavaScript 实现，支持本地双人对战、人机对战、AI 难度切换、计分板和比分持久化，适合作为前端小游戏作品集项目展示。
 
