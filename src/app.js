@@ -42,7 +42,12 @@ function render() {
         <div class="macro-board" role="grid" aria-label="大棋盘">
           ${state.boards
             .map((board, boardIndex) =>
-              renderSmallBoard(board, boardIndex, availableBoards.includes(boardIndex)),
+              renderSmallBoard(board, boardIndex, {
+                isAvailable: availableBoards.includes(boardIndex),
+                isForced:
+                  state.forcedBoard === boardIndex && availableBoards.includes(boardIndex),
+                isFreeChoice: state.forcedBoard === null && availableBoards.includes(boardIndex),
+              }),
             )
             .join("")}
         </div>
@@ -56,15 +61,17 @@ function render() {
   `;
 }
 
-function renderSmallBoard(board, boardIndex, isAvailable) {
+function renderSmallBoard(board, boardIndex, boardState) {
   const macroWon = state.winningLine?.includes(boardIndex) ? " is-macro-win" : "";
   const ownerClass = board.winner ? ` owner-${board.winner.toLowerCase()}` : "";
-  const availableClass = isAvailable ? " is-available" : " is-locked";
+  const availableClass = boardState.isAvailable ? " is-available" : " is-locked";
+  const forcedClass = boardState.isForced ? " is-forced" : "";
+  const freeChoiceClass = boardState.isFreeChoice ? " is-free-choice" : "";
   const tiedClass = !board.winner && board.full ? " is-tied" : "";
 
   return `
     <div
-      class="small-board${availableClass}${ownerClass}${macroWon}${tiedClass}"
+      class="small-board${availableClass}${forcedClass}${freeChoiceClass}${ownerClass}${macroWon}${tiedClass}"
       role="gridcell"
       aria-label="${BOARD_NAMES[boardIndex]}小棋盘"
       data-board="${boardIndex}"

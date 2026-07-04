@@ -181,17 +181,31 @@ h1 {
   border: 2px solid transparent;
   border-radius: 8px;
   background: var(--surface);
+  box-shadow: inset 0 0 0 0 transparent;
   overflow: hidden;
   transition:
     border-color 160ms ease,
     opacity 160ms ease,
-    transform 160ms ease,
+    box-shadow 160ms ease,
     background 160ms ease;
 }
 
 .small-board.is-available {
   border-color: var(--accent);
   background: linear-gradient(180deg, var(--accent-soft), #ffffff 44%);
+  box-shadow: inset 0 0 0 2px rgb(19 138 94 / 34%);
+}
+
+.small-board.is-forced {
+  border-color: #0f7a53;
+  background: linear-gradient(180deg, #c9f5dc, #ffffff 48%);
+  box-shadow:
+    inset 0 0 0 4px rgb(19 138 94 / 52%),
+    0 0 0 2px rgb(19 138 94 / 18%);
+}
+
+.small-board.is-free-choice {
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
 }
 
 .small-board.is-locked {
@@ -240,13 +254,13 @@ h1 {
   transition:
     border-color 120ms ease,
     background 120ms ease,
-    transform 120ms ease;
+    box-shadow 120ms ease;
 }
 
 .cell:hover:not(:disabled) {
   border-color: var(--accent);
   background: #ffffff;
-  transform: scale(1.03);
+  box-shadow: inset 0 0 0 2px rgb(19 138 94 / 28%);
 }
 
 .cell:disabled {
