@@ -165,10 +165,14 @@ function renderSmallBoard(board, boardIndex, boardState) {
 function renderCell(board, boardIndex, cell, cellIndex) {
   const playable = canPlayMove(state, boardIndex, cellIndex);
   const winCell = board.winningLine?.includes(cellIndex) ? " is-small-win" : "";
+  const latestMove = state.moveHistory.at(-1);
+  const isLatestMove =
+    latestMove?.boardIndex === boardIndex && latestMove?.cellIndex === cellIndex;
+  const latestMoveClass = isLatestMove ? " is-latest-move" : "";
 
   return `
     <button
-      class="cell${cell ? " is-filled" : ""}${winCell}"
+      class="cell${cell ? " is-filled" : ""}${winCell}${latestMoveClass}"
       type="button"
       data-board="${boardIndex}"
       data-cell="${cellIndex}"

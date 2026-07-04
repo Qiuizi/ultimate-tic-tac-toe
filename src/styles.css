@@ -390,7 +390,7 @@ h1 {
   overflow: hidden;
 }
 
-.cell.is-filled span {
+.cell.is-latest-move span {
   animation: stone-in 180ms ease-out both;
 }
 
