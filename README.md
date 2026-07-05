@@ -1,5 +1,7 @@
 # 终极井字棋 Ultimate Tic-Tac-Toe
 
+English version: [README.en.md](./README.en.md)
+
 ![Ultimate Tic-Tac-Toe Screenshot](./assets/screenshot.png)
 
 在线演示：<https://qiuizi.github.io/ultimate-tic-tac-toe/>
@@ -121,6 +123,7 @@ npm run build
 
 ## 之后可以继续做
 
+- 补一个简短的玩法 GIF，让 README 更直观。
 - 困难 AI 现在只是浅层搜索，后面可以继续调评估函数，让它少犯一些“送棋盘”的错误。
 - 如果 AI 搜索继续加深，可以考虑放到 Web Worker 里，避免影响页面操作。
 - 落子历史目前只显示最近几步，后面可以做成完整记录或回放。
