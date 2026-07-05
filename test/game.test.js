@@ -27,6 +27,7 @@ import {
 import { hasSupabaseConfig } from "../src/config.js";
 import {
   createRoom,
+  getActiveOnlineAdapter,
   getOnlineAdapterStatus,
   getOnlinePlayerRole,
   joinRoom,
@@ -337,6 +338,20 @@ test("Supabase config requires provider, URL, and publishable key", () => {
     }),
     false,
   );
+});
+
+test("online adapter resolver uses Supabase when runtime config is complete", () => {
+  globalThis.__ULTIMATE_TTT_CONFIG__ = {
+    ONLINE_PROVIDER: "supabase",
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_PUBLISHABLE_KEY: "public-key",
+  };
+
+  try {
+    assert.equal(getActiveOnlineAdapter().name, "supabase");
+  } finally {
+    delete globalThis.__ULTIMATE_TTT_CONFIG__;
+  }
 });
 
 test("mock online adapter rejects stale room state updates", async () => {

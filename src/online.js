@@ -3,20 +3,23 @@ import * as mockAdapter from "./online-mock.js";
 import * as supabaseAdapter from "./online-supabase.js";
 import { ONLINE_SYNC_STATUS } from "./room.js";
 
-let activeAdapter = mockAdapter;
-let activeAdapterName = "mock";
-
 export async function createRoom() {
+  const resolvedAdapter = getActiveOnlineAdapter();
+  logAdapterAction("createRoom", resolvedAdapter);
+
   try {
-    return await getActiveAdapter().createRoom();
+    return await resolvedAdapter.adapter.createRoom();
   } catch (error) {
     return createAdapterError(error, "创建远程房间失败。");
   }
 }
 
 export async function joinRoom(roomCode) {
+  const resolvedAdapter = getActiveOnlineAdapter();
+  logAdapterAction("joinRoom", resolvedAdapter);
+
   try {
-    return await getActiveAdapter().joinRoom(roomCode);
+    return await resolvedAdapter.adapter.joinRoom(roomCode);
   } catch (error) {
     return createAdapterError(error, "加入远程房间失败。");
   }
@@ -24,36 +27,40 @@ export async function joinRoom(roomCode) {
 
 export async function leaveRoom() {
   try {
-    return await getActiveAdapter().leaveRoom();
+    return await getActiveOnlineAdapter().adapter.leaveRoom();
   } catch (error) {
     return createAdapterError(error, "退出远程房间失败。");
   }
 }
 
 export function subscribeToRoom(roomCode, callback) {
-  return getActiveAdapter().subscribeToRoom(roomCode, callback);
+  return getActiveOnlineAdapter().adapter.subscribeToRoom(roomCode, callback);
 }
 
 export async function updateRoomState(roomCode, nextState, expectedVersion) {
   try {
-    return await getActiveAdapter().updateRoomState(roomCode, nextState, expectedVersion);
+    return await getActiveOnlineAdapter().adapter.updateRoomState(
+      roomCode,
+      nextState,
+      expectedVersion,
+    );
   } catch (error) {
     return createAdapterError(error, "同步远程房间失败。");
   }
 }
 
 export function cleanupOnlineSubscription() {
-  return getActiveAdapter().cleanupOnlineSubscription();
+  return getActiveOnlineAdapter().adapter.cleanupOnlineSubscription();
 }
 
 export function getOnlinePlayerRole() {
-  return getActiveAdapter().getOnlinePlayerRole();
+  return getActiveOnlineAdapter().adapter.getOnlinePlayerRole();
 }
 
 export function getOnlineAdapterStatus() {
-  const config = getOnlineConfig();
+  const resolvedAdapter = getActiveOnlineAdapter();
 
-  if (config.ONLINE_PROVIDER === "supabase" && !hasSupabaseConfig(config)) {
+  if (resolvedAdapter.config.ONLINE_PROVIDER === "supabase" && !resolvedAdapter.usesSupabase) {
     return {
       provider: "mock",
       label: "Supabase 未配置",
@@ -62,57 +69,37 @@ export function getOnlineAdapterStatus() {
     };
   }
 
-  if (hasSupabaseConfig(config)) {
+  if (resolvedAdapter.usesSupabase) {
     return supabaseAdapter.getAdapterStatus();
-  }
-
-  if (activeAdapterName === "supabase") {
-    return activeAdapter.getAdapterStatus();
   }
 
   return mockAdapter.getAdapterStatus();
 }
 
 export function getOnlineDebugInfo() {
+  return getActiveOnlineAdapter().debug;
+}
+
+export function getActiveOnlineAdapter() {
   const config = getOnlineConfig();
-  const hasSupabaseUrl = Boolean(config.SUPABASE_URL);
-  const hasPublishableKey = Boolean(config.SUPABASE_PUBLISHABLE_KEY);
   const usesSupabase = hasSupabaseConfig(config);
+  const debug = createOnlineDebugInfo(config, usesSupabase);
 
   return {
-    adapter: usesSupabase ? "supabase" : "mock",
-    onlineProvider: config.ONLINE_PROVIDER || "(empty)",
-    hasSupabaseUrl,
-    hasPublishableKey,
+    adapter: usesSupabase ? supabaseAdapter : mockAdapter,
+    name: usesSupabase ? "supabase" : "mock",
+    config,
+    usesSupabase,
+    debug,
   };
 }
 
 export function resetMockOnlineState() {
   mockAdapter.resetMockOnlineState();
-  activeAdapter = mockAdapter;
-  activeAdapterName = "mock";
 }
 
 export function getMockRoom(roomCode) {
   return mockAdapter.getMockRoom(roomCode);
-}
-
-function getActiveAdapter() {
-  const config = getOnlineConfig();
-
-  if (!hasSupabaseConfig(config)) {
-    activeAdapter = mockAdapter;
-    activeAdapterName = "mock";
-    return activeAdapter;
-  }
-
-  if (activeAdapterName === "supabase") {
-    return activeAdapter;
-  }
-
-  activeAdapter = supabaseAdapter;
-  activeAdapterName = "supabase";
-  return activeAdapter;
 }
 
 function createAdapterError(error, fallback) {
@@ -120,6 +107,22 @@ function createAdapterError(error, fallback) {
     ok: false,
     error: `${fallback} ${error?.message || ""}`.trim(),
   };
+}
+
+function createOnlineDebugInfo(config, usesSupabase) {
+  return {
+    adapter: usesSupabase ? "supabase" : "mock",
+    onlineProvider: config.ONLINE_PROVIDER || "(empty)",
+    hasSupabaseUrl: Boolean(config.SUPABASE_URL),
+    hasPublishableKey: Boolean(config.SUPABASE_PUBLISHABLE_KEY),
+  };
+}
+
+function logAdapterAction(action, resolvedAdapter) {
+  console.info("Ultimate Tic-Tac-Toe online adapter action", {
+    action,
+    ...resolvedAdapter.debug,
+  });
 }
 
 export { ONLINE_SYNC_STATUS };
