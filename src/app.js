@@ -52,7 +52,7 @@ function render() {
           <h1>终极井字棋</h1>
           <p class="tagline">九个小棋盘互相牵制，把普通三连变成一场位置博弈。</p>
         </div>
-        <button class="rules-button" type="button" data-action="open-rules">游戏规则</button>
+        <button class="rules-button" type="button" data-action="open-rules" data-testid="rules-button">游戏规则</button>
       </header>
 
       <section class="play-area">
@@ -68,7 +68,7 @@ function render() {
         </aside>
 
         <section class="board-wrap">
-          <div class="macro-board ${isComputerThinking ? "is-thinking" : ""}" role="grid" aria-label="大棋盘">
+          <div class="macro-board ${isComputerThinking ? "is-thinking" : ""}" role="grid" aria-label="大棋盘" data-testid="game-board">
             ${state.boards
               .map((board, boardIndex) =>
                 renderSmallBoard(board, boardIndex, {
@@ -118,7 +118,7 @@ function renderModeSelector() {
   return `
     <section class="mode-card" aria-label="游戏模式">
       <span class="mode-label">游戏模式</span>
-      <div class="mode-toggle" role="group" aria-label="选择游戏模式">
+      <div class="mode-toggle" role="group" aria-label="选择游戏模式" data-testid="mode-select">
         <button class="mode-button ${gameMode === MODES.TWO_PLAYER ? "is-active" : ""}" type="button" data-mode="${MODES.TWO_PLAYER}">
           两人对战
         </button>
@@ -138,7 +138,7 @@ function renderDifficultySelector() {
   return `
     <section class="mode-card" aria-label="AI 难度">
       <span class="mode-label">AI 难度</span>
-      <div class="mode-toggle" role="group" aria-label="选择 AI 难度">
+      <div class="mode-toggle" role="group" aria-label="选择 AI 难度" data-testid="difficulty-select">
         <button class="mode-button ${aiDifficulty === AI_DIFFICULTIES.NORMAL ? "is-active" : ""}" type="button" data-difficulty="${AI_DIFFICULTIES.NORMAL}">
           普通
         </button>
@@ -168,15 +168,15 @@ function renderScoreboard() {
     <section class="scoreboard" aria-label="比分">
       <div class="score-card score-x">
         <span class="score-label">X</span>
-        <strong>${score.X}</strong>
+        <strong data-testid="score-x-value">${score.X}</strong>
       </div>
       <div class="score-card score-o">
         <span class="score-label">O</span>
-        <strong>${score.O}</strong>
+        <strong data-testid="score-o-value">${score.O}</strong>
       </div>
       <div class="score-card">
         <span class="score-label">平局</span>
-        <strong>${score.draw}</strong>
+        <strong data-testid="score-draw-value">${score.draw}</strong>
       </div>
     </section>
   `;
@@ -187,15 +187,15 @@ function renderActions() {
 
   return `
     <nav class="actions" aria-label="游戏操作">
-      <button class="action-button" type="button" data-action="undo" ${undoDisabled ? "disabled" : ""}>
+      <button class="action-button" type="button" data-action="undo" data-testid="undo-button" ${undoDisabled ? "disabled" : ""}>
         <span aria-hidden="true">↶</span>
         撤销上一步
       </button>
-      <button class="action-button primary" type="button" data-action="restart">
+      <button class="action-button primary" type="button" data-action="restart" data-testid="restart-button">
         <span aria-hidden="true">↻</span>
         重新开始
       </button>
-      <button class="action-button subtle" type="button" data-action="reset-score">
+      <button class="action-button subtle" type="button" data-action="reset-score" data-testid="reset-score-button">
         清空比分
       </button>
     </nav>
@@ -219,14 +219,14 @@ function renderMoveHistory() {
   const canToggleHistory = state.moveHistory.length > 9;
 
   return `
-    <section class="move-history" aria-label="落子历史">
+    <section class="move-history" aria-label="落子历史" data-testid="move-history">
       <div class="panel-heading">
         <h2>落子历史</h2>
         <div class="history-heading-actions">
           <span>${state.moveHistory.length} 步</span>
           ${
             canToggleHistory
-              ? `<button class="history-toggle" type="button" data-action="toggle-history">
+              ? `<button class="history-toggle" type="button" data-action="toggle-history" data-testid="history-toggle">
                   ${isHistoryExpanded ? "收起" : "展开全部"}
                 </button>`
               : ""
@@ -276,14 +276,14 @@ function formatMoveHistoryText(move) {
 
 function renderRulesDialog() {
   return `
-    <div class="rules-modal" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+    <div class="rules-modal" role="dialog" aria-modal="true" aria-labelledby="rules-title" data-testid="rules-dialog">
       <section class="rules-dialog">
         <div class="dialog-heading">
           <div>
             <p class="eyebrow">How to play</p>
             <h2 id="rules-title">游戏规则</h2>
           </div>
-          <button class="icon-button" type="button" data-action="close-rules" aria-label="关闭规则说明">×</button>
+          <button class="icon-button" type="button" data-action="close-rules" data-testid="rules-close-button" aria-label="关闭规则说明">×</button>
         </div>
         <ul class="rules-list">
           <li>棋盘由 9 个小棋盘组成，每个小棋盘都是 3 × 3。</li>
@@ -292,7 +292,7 @@ function renderRulesDialog() {
           <li>赢下一个小棋盘后，会占据大棋盘上对应的位置。</li>
           <li>谁先在大棋盘上占据三个连成一线的小棋盘，谁获胜。</li>
         </ul>
-        <button class="action-button primary" type="button" data-action="close-rules">知道了</button>
+        <button class="action-button primary" type="button" data-action="close-rules" data-testid="rules-confirm-button">知道了</button>
       </section>
     </div>
   `;
@@ -312,6 +312,7 @@ function renderSmallBoard(board, boardIndex, boardState) {
       role="gridcell"
       aria-label="${BOARD_NAMES[boardIndex]}小棋盘"
       data-board="${boardIndex}"
+      data-testid="small-board-${boardIndex}"
     >
       <div class="small-grid">
         ${board.cells
@@ -343,6 +344,7 @@ function renderCell(board, boardIndex, cell, cellIndex) {
       type="button"
       data-board="${boardIndex}"
       data-cell="${cellIndex}"
+      data-testid="cell-${boardIndex}-${cellIndex}"
       data-disabled-reason="${disabledReason}"
       aria-label="${BOARD_NAMES[boardIndex]}小棋盘，第 ${cellIndex + 1} 格${cell ? `，${cell}` : ""}"
       aria-disabled="${playable ? "false" : "true"}"

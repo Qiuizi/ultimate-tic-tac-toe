@@ -63,6 +63,7 @@ English version: [README.en.md](./README.en.md)
 - CSS
 - JavaScript ES Modules
 - Node.js `node:test`
+- Playwright
 - 无第三方前端框架
 
 ## 本地运行
@@ -82,6 +83,14 @@ http://localhost:3000
 ```bash
 npm test
 ```
+
+浏览器端到端测试：
+
+```bash
+npm run test:e2e
+```
+
+Playwright 测试覆盖页面加载、规则弹窗、双人模式、人机模式、撤销、历史记录和移动端冒烟检查。
 
 也可以单独检查 JS 语法：
 
@@ -118,6 +127,9 @@ npm run build
 │   ├── app.js        # 页面渲染、交互、模式、历史、撤销和比分
 │   ├── game.js       # 规则、胜负判断、AI
 │   └── styles.css
+├── tests/
+│   └── e2e/
+│       └── app.spec.js
 └── test/
     └── game.test.js
 ```
@@ -127,7 +139,6 @@ npm run build
 - 困难 AI 现在只是浅层搜索，后面可以继续调评估函数，让它少犯一些“送棋盘”的错误。
 - 如果 AI 搜索继续加深，可以考虑放到 Web Worker 里，避免影响页面操作。
 - 后面可以给完整落子历史增加更细的复盘或回放视图。
-- 后面可以补 Playwright 测试，主要测移动端布局、localStorage 和完整的人机流程。
 
 ## 作者
 

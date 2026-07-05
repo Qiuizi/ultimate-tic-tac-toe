@@ -59,6 +59,7 @@ Hard mode is stronger than normal mode, but it is not a perfect or unbeatable AI
 - CSS
 - JavaScript ES Modules
 - Node.js `node:test`
+- Playwright
 - No frontend framework
 
 ## Run Locally
@@ -78,6 +79,14 @@ http://localhost:3000
 ```bash
 npm test
 ```
+
+Run browser end-to-end tests:
+
+```bash
+npm run test:e2e
+```
+
+The Playwright tests cover page loading, the rules modal, two-player mode, computer mode, undo, move history, and a mobile smoke check.
 
 You can also run syntax checks directly:
 
@@ -107,6 +116,9 @@ The static output is written to `dist/`.
 │   ├── app.js        # UI rendering, interaction, mode, history, undo, and score state
 │   ├── game.js       # Ultimate rules, win checks, and AI
 │   └── styles.css
+├── tests/
+│   └── e2e/
+│       └── app.spec.js
 └── test/
     └── game.test.js
 ```
@@ -116,4 +128,3 @@ The static output is written to `dist/`.
 - Tune the hard AI evaluation so it makes fewer bad board-sending decisions.
 - Move deeper AI search into a Web Worker if the search depth is increased.
 - Add a fuller review or replay view on top of the complete move history.
-- Add browser-level tests for mobile layout, `localStorage`, and a full player-vs-computer flow.
