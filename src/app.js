@@ -31,6 +31,7 @@ let computerTimer = null;
 let isComputerThinking = false;
 let feedbackMessage = "";
 let feedbackTimer = null;
+let isRulesOpen = false;
 
 function render() {
   const availableBoards = getAvailableBoards(state);
@@ -47,6 +48,7 @@ function render() {
           <h1>终极井字棋</h1>
           <p class="tagline">九个小棋盘互相牵制，把普通三连变成一场位置博弈。</p>
         </div>
+        <button class="rules-button" type="button" data-action="open-rules">游戏规则</button>
       </header>
 
       <section class="play-area">
@@ -58,6 +60,7 @@ function render() {
           ${renderScoreboard()}
           ${renderActions(gameResult)}
           ${renderRuleNotes()}
+          ${renderMoveHistory()}
         </aside>
 
         <section class="board-wrap">
@@ -82,6 +85,7 @@ function render() {
         <span>${getConstraintText(availableBoards, releasedTarget)}</span>
         <span>已占领 ${getCapturedCount()} / 9 个小棋盘</span>
       </footer>
+      ${isRulesOpen ? renderRulesDialog() : ""}
       ${feedbackMessage ? `<div class="feedback-toast" role="status">${feedbackMessage}</div>` : ""}
     </section>
   `;
@@ -201,6 +205,61 @@ function renderRuleNotes() {
       <p>你在小棋盘中点击的位置，会决定对手下一步必须进入的大区域。</p>
       <p>如果目标区域已经结束，对手可以自由选择任意未结束区域。</p>
     </section>
+  `;
+}
+
+function renderMoveHistory() {
+  const recentMoves = state.moveHistory.slice(-8).reverse();
+
+  return `
+    <section class="move-history" aria-label="落子历史">
+      <div class="panel-heading">
+        <h2>落子历史</h2>
+        <span>${state.moveHistory.length} 步</span>
+      </div>
+      ${
+        recentMoves.length
+          ? `<ol class="history-list">
+              ${recentMoves
+                .map((move, index) => {
+                  const stepNumber = state.moveHistory.length - index;
+                  return `
+                    <li>
+                      <span class="history-step">#${stepNumber}</span>
+                      <strong class="player-${move.player.toLowerCase()}">${move.player}</strong>
+                      <span>${BOARD_NAMES[move.boardIndex]}小棋盘，第 ${move.cellIndex + 1} 格</span>
+                    </li>
+                  `;
+                })
+                .join("")}
+            </ol>`
+          : `<p class="history-empty">还没有落子。</p>`
+      }
+    </section>
+  `;
+}
+
+function renderRulesDialog() {
+  return `
+    <div class="rules-modal" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+      <section class="rules-dialog">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">How to play</p>
+            <h2 id="rules-title">游戏规则</h2>
+          </div>
+          <button class="icon-button" type="button" data-action="close-rules" aria-label="关闭规则说明">×</button>
+        </div>
+        <ul class="rules-list">
+          <li>棋盘由 9 个小棋盘组成，每个小棋盘都是 3 × 3。</li>
+          <li>玩家在某个格子落子后，对手下一步必须去对应位置的小棋盘。</li>
+          <li>如果目标小棋盘已经结束或下满，对手可以自由选择其他可用小棋盘。</li>
+          <li>赢下一个小棋盘后，会占据大棋盘上对应的位置。</li>
+          <li>谁先在大棋盘上占据三个连成一线的小棋盘，谁获胜。</li>
+        </ul>
+        <button class="action-button primary" type="button" data-action="close-rules">知道了</button>
+      </section>
+    </div>
   `;
 }
 
@@ -360,6 +419,18 @@ app.addEventListener("click", (event) => {
 
   if (action === "restart") {
     resetRound();
+    return;
+  }
+
+  if (action === "open-rules") {
+    isRulesOpen = true;
+    render();
+    return;
+  }
+
+  if (action === "close-rules") {
+    isRulesOpen = false;
+    render();
     return;
   }
 
