@@ -82,7 +82,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-public-browser-key
 
 `.env.local` 已被 `.gitignore` 忽略，不要提交。`npm run dev` 会从 `.env.local` 或当前环境变量动态提供 `src/config.js`。没有配置时，远程模式会自动使用 Mock adapter。
 
-这是静态站，不使用 Vite / Webpack。`npm run build` 会把这些公开配置写入 `dist/src/config.js`。GitHub Pages 可以在 workflow 中从 GitHub Actions variables 或 secrets 注入这些值；这些值会进入前端产物，所以只能使用 publishable / anon public key，不能放服务端特权 key、secret key 或数据库登录凭据。
+这是静态站，不使用 Vite / Webpack。`npm run build` 会把这些公开配置写入 `dist/src/config.js`。GitHub Pages 部署使用 GitHub Actions Variables 注入公开配置；这些值会进入前端产物，所以只能使用 publishable / anon public key，不能放服务端特权 key、secret key 或数据库登录凭据。
 
 当前 MVP 边界：
 
@@ -170,6 +170,15 @@ npm run build
 
 - GitHub Pages：可以用仓库里的 GitHub Actions workflow 部署 `dist/`。
 - Vercel：构建命令填 `npm run build`，输出目录填 `dist`。
+
+GitHub Pages 远程对战需要在仓库 `Settings` → `Secrets and variables` → `Actions` → `Variables` 中配置：
+
+```txt
+SUPABASE_URL
+SUPABASE_PUBLISHABLE_KEY
+```
+
+部署 workflow 会在 build step 设置 `ONLINE_PROVIDER=supabase`，并读取这两个公开变量。不要把服务端特权 key、secret key 或数据库登录凭据放进 Actions Variables / Secrets 给前端构建使用。
 
 ## 项目结构
 

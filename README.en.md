@@ -78,7 +78,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-public-browser-key
 
 `.env.local` is ignored by git and should not be committed. `npm run dev` serves `src/config.js` dynamically from `.env.local` or the current environment. Without config, online mode automatically uses the mock adapter.
 
-This is a static site without Vite / Webpack. `npm run build` writes those public values into `dist/src/config.js`. GitHub Pages can inject them from GitHub Actions variables or secrets in the workflow. These values are included in the browser bundle, so only use a publishable / anon public key. Never put privileged server keys, secret keys, or database login credentials in frontend config.
+This is a static site without Vite / Webpack. `npm run build` writes those public values into `dist/src/config.js`. GitHub Pages injects public config from GitHub Actions Variables. These values are included in the browser bundle, so only use a publishable / anon public key. Never put privileged server keys, secret keys, or database login credentials in frontend config.
 
 MVP boundaries:
 
@@ -159,6 +159,15 @@ npm run build
 ```
 
 The static output is written to `dist/`. If `ONLINE_PROVIDER`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY`, or the compatible `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, are set, the build script writes public Supabase config. Without them, online mode uses the mock adapter.
+
+For GitHub Pages online mode, configure these public repository variables in `Settings` → `Secrets and variables` → `Actions` → `Variables`:
+
+```txt
+SUPABASE_URL
+SUPABASE_PUBLISHABLE_KEY
+```
+
+The deploy workflow sets `ONLINE_PROVIDER=supabase` during the build step and reads those two public variables. Do not put privileged server keys, secret keys, or database login credentials in Actions Variables / Secrets for frontend builds.
 
 ## Project Structure
 
