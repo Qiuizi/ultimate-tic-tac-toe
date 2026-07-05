@@ -2,6 +2,8 @@
 
 ![Ultimate Tic-Tac-Toe Screenshot](./assets/screenshot.png)
 
+在线演示：<https://qiuizi.github.io/ultimate-tic-tac-toe/>
+
 这是一个用原生 HTML/CSS/JavaScript 写的 Ultimate Tic-Tac-Toe 小游戏。
 
 它和普通井字棋不太一样：棋盘里有 9 个小棋盘，你下在哪个小格，会决定对手下一步要去哪个小棋盘。项目里做了双人模式、人机模式、计分板、比分保存，以及一个简单的困难 AI。
