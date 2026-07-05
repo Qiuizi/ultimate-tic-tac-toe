@@ -20,6 +20,11 @@ export default defineConfig({
     url: "http://localhost:3100",
     env: {
       PORT: "3100",
+      ONLINE_PROVIDER: "",
+      SUPABASE_URL: "",
+      SUPABASE_PUBLISHABLE_KEY: "",
+      NEXT_PUBLIC_SUPABASE_URL: "",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "",
     },
     reuseExistingServer: !process.env.CI,
     timeout: 15_000,

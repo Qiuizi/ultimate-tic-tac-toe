@@ -65,7 +65,24 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=your-public-browser-key
 ```
 
-这是静态站，不使用 Vite / Webpack。`npm run build` 会把这些公开配置写入 `dist/src/config.js`。GitHub Pages 可以在 workflow 中从 GitHub Actions variables 或 secrets 注入这些值；这些值会进入前端产物，所以只能使用 publishable / anon public key，不能放任何服务端特权 key 或 secret key。
+本地开发可以创建 `.env.local`：
+
+```bash
+ONLINE_PROVIDER=supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-public-browser-key
+```
+
+也兼容这些变量名：
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-public-browser-key
+```
+
+`.env.local` 已被 `.gitignore` 忽略，不要提交。`npm run dev` 会从 `.env.local` 或当前环境变量动态提供 `src/config.js`。没有配置时，远程模式会自动使用 Mock adapter。
+
+这是静态站，不使用 Vite / Webpack。`npm run build` 会把这些公开配置写入 `dist/src/config.js`。GitHub Pages 可以在 workflow 中从 GitHub Actions variables 或 secrets 注入这些值；这些值会进入前端产物，所以只能使用 publishable / anon public key，不能放服务端特权 key、secret key 或数据库登录凭据。
 
 当前 MVP 边界：
 
@@ -145,7 +162,7 @@ node --check src/online-supabase.js
 npm run build
 ```
 
-构建后的文件在 `dist/`。如果设置了 `ONLINE_PROVIDER`、`SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY`，构建脚本会生成公开配置；没有设置时远程模式使用 Mock adapter。
+构建后的文件在 `dist/`。如果设置了 `ONLINE_PROVIDER`、`SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY`，或对应的 `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`，构建脚本会生成公开配置；没有设置时远程模式使用 Mock adapter。
 
 ## 部署
 

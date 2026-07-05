@@ -61,7 +61,24 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=your-public-browser-key
 ```
 
-This is a static site without Vite / Webpack. `npm run build` writes those public values into `dist/src/config.js`. GitHub Pages can inject them from GitHub Actions variables or secrets in the workflow. These values are included in the browser bundle, so only use a publishable / anon public key. Never put a privileged server key or secret key in frontend config.
+For local development, create `.env.local`:
+
+```bash
+ONLINE_PROVIDER=supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-public-browser-key
+```
+
+These names are also supported:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-public-browser-key
+```
+
+`.env.local` is ignored by git and should not be committed. `npm run dev` serves `src/config.js` dynamically from `.env.local` or the current environment. Without config, online mode automatically uses the mock adapter.
+
+This is a static site without Vite / Webpack. `npm run build` writes those public values into `dist/src/config.js`. GitHub Pages can inject them from GitHub Actions variables or secrets in the workflow. These values are included in the browser bundle, so only use a publishable / anon public key. Never put privileged server keys, secret keys, or database login credentials in frontend config.
 
 MVP boundaries:
 
@@ -141,7 +158,7 @@ node --check src/online-supabase.js
 npm run build
 ```
 
-The static output is written to `dist/`. If `ONLINE_PROVIDER`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY` are set, the build script writes public Supabase config. Without them, online mode uses the mock adapter.
+The static output is written to `dist/`. If `ONLINE_PROVIDER`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY`, or the compatible `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, are set, the build script writes public Supabase config. Without them, online mode uses the mock adapter.
 
 ## Project Structure
 
