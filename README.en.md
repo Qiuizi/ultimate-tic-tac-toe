@@ -112,7 +112,6 @@ The static output is written to `dist/`.
 
 ## Future Improvements
 
-- Add a short gameplay GIF to make the README easier to understand.
 - Tune the hard AI evaluation so it makes fewer bad board-sending decisions.
 - Move deeper AI search into a Web Worker if the search depth is increased.
 - Expand move history into a full replay view.
