@@ -32,10 +32,10 @@ export function getOnlineConfig() {
   const runtimeConfig = globalThis.__ULTIMATE_TTT_CONFIG__ ?? {};
 
   return {
-    ONLINE_PROVIDER: runtimeConfig.ONLINE_PROVIDER || ONLINE_PROVIDER,
-    SUPABASE_URL: runtimeConfig.SUPABASE_URL || SUPABASE_URL,
+    ONLINE_PROVIDER: normalizeProvider(runtimeConfig.ONLINE_PROVIDER || ONLINE_PROVIDER),
+    SUPABASE_URL: normalizeValue(runtimeConfig.SUPABASE_URL || SUPABASE_URL),
     SUPABASE_PUBLISHABLE_KEY:
-      runtimeConfig.SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY,
+      normalizeValue(runtimeConfig.SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY),
   };
 }
 
@@ -45,6 +45,14 @@ export function hasSupabaseConfig(config = getOnlineConfig()) {
       config.SUPABASE_URL &&
       config.SUPABASE_PUBLISHABLE_KEY,
   );
+}
+
+function normalizeProvider(value) {
+  return normalizeValue(value).toLowerCase();
+}
+
+function normalizeValue(value) {
+  return String(value ?? "").trim();
 }
 `;
 }

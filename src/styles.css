@@ -299,14 +299,16 @@ h1 {
   opacity: 0.58;
 }
 
-.online-room-meta {
+.online-room-meta,
+.online-debug {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
 }
 
-.online-room-meta div {
+.online-room-meta div,
+.online-debug div {
   min-width: 0;
   padding: 10px;
   border: 1px solid #d9e0ea;
@@ -314,14 +316,16 @@ h1 {
   background: var(--surface-muted);
 }
 
-.online-room-meta dt {
+.online-room-meta dt,
+.online-debug dt {
   margin: 0 0 5px;
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 850;
 }
 
-.online-room-meta dd {
+.online-room-meta dd,
+.online-debug dd {
   min-width: 0;
   margin: 0;
   color: var(--ink);
@@ -929,7 +933,8 @@ h1 {
   }
 
   .mode-toggle,
-  .online-room-meta {
+  .online-room-meta,
+  .online-debug {
     grid-template-columns: 1fr;
   }
 

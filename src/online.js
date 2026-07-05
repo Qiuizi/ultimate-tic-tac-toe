@@ -62,11 +62,29 @@ export function getOnlineAdapterStatus() {
     };
   }
 
+  if (hasSupabaseConfig(config)) {
+    return supabaseAdapter.getAdapterStatus();
+  }
+
   if (activeAdapterName === "supabase") {
     return activeAdapter.getAdapterStatus();
   }
 
   return mockAdapter.getAdapterStatus();
+}
+
+export function getOnlineDebugInfo() {
+  const config = getOnlineConfig();
+  const hasSupabaseUrl = Boolean(config.SUPABASE_URL);
+  const hasPublishableKey = Boolean(config.SUPABASE_PUBLISHABLE_KEY);
+  const usesSupabase = hasSupabaseConfig(config);
+
+  return {
+    adapter: usesSupabase ? "supabase" : "mock",
+    onlineProvider: config.ONLINE_PROVIDER || "(empty)",
+    hasSupabaseUrl,
+    hasPublishableKey,
+  };
 }
 
 export function resetMockOnlineState() {

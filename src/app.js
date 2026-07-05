@@ -15,6 +15,7 @@ import {
   cleanupOnlineSubscription,
   createRoom as createOnlineRoom,
   getOnlineAdapterStatus,
+  getOnlineDebugInfo,
   joinRoom as joinOnlineRoom,
   leaveRoom as leaveOnlineRoom,
   ONLINE_SYNC_STATUS,
@@ -53,6 +54,7 @@ let onlineRoom = null;
 let onlineSession = null;
 let onlineSyncStatus = getDisconnectedStatus();
 let onlineRoomCodeInput = "";
+let lastLoggedOnlineDebug = "";
 
 function render() {
   const availableBoards = getAvailableBoards(state);
@@ -175,11 +177,14 @@ function renderOnlinePanel() {
     return "";
   }
 
+  logOnlineDebugInfo();
+
   const roomCode = onlineRoom?.code || onlineSession?.roomCode || "";
   const role = onlineSession?.role || "未加入";
   const opponentStatus = getOpponentStatusText();
   const canCopy = Boolean(roomCode);
   const adapterStatus = getOnlineAdapterStatus();
+  const onlineDebugInfo = getOnlineDebugInfo();
 
   return `
     <section class="online-panel" aria-label="远程对战配置" data-testid="online-panel">
@@ -188,6 +193,24 @@ function renderOnlinePanel() {
         <span>${adapterStatus.configured ? "可联机" : "配置中"}</span>
       </div>
       <p class="online-note">${adapterStatus.note}</p>
+      <dl class="online-debug" aria-label="远程调试信息" data-testid="online-debug">
+        <div>
+          <dt>adapter</dt>
+          <dd>${onlineDebugInfo.adapter}</dd>
+        </div>
+        <div>
+          <dt>onlineProvider</dt>
+          <dd>${onlineDebugInfo.onlineProvider}</dd>
+        </div>
+        <div>
+          <dt>hasSupabaseUrl</dt>
+          <dd>${onlineDebugInfo.hasSupabaseUrl}</dd>
+        </div>
+        <div>
+          <dt>hasPublishableKey</dt>
+          <dd>${onlineDebugInfo.hasPublishableKey}</dd>
+        </div>
+      </dl>
       <div class="online-actions">
         <button class="action-button primary" type="button" data-action="create-room" data-testid="create-room-button" ${onlineSession ? "disabled" : ""}>
           创建房间
@@ -237,6 +260,17 @@ function renderOnlinePanel() {
       </div>
     </section>
   `;
+}
+
+function logOnlineDebugInfo() {
+  const onlineDebugInfo = getOnlineDebugInfo();
+  const debugKey = JSON.stringify(onlineDebugInfo);
+  if (debugKey === lastLoggedOnlineDebug) {
+    return;
+  }
+
+  lastLoggedOnlineDebug = debugKey;
+  console.info("Ultimate Tic-Tac-Toe online debug", onlineDebugInfo);
 }
 
 function renderReleasedTargetNotice(releasedTarget) {
