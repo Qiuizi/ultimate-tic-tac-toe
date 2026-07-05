@@ -373,6 +373,30 @@ h1 {
   font-weight: 800;
 }
 
+.history-heading-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: end;
+  gap: 8px;
+}
+
+.history-toggle {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.history-toggle:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .history-list {
   display: grid;
   gap: 8px;
@@ -385,7 +409,7 @@ h1 {
   min-width: 0;
   display: grid;
   grid-template-columns: 38px 22px minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 8px;
   padding: 8px;
   border: 1px solid #d9e0ea;
@@ -397,12 +421,14 @@ h1 {
 }
 
 .history-step {
+  padding-top: 1px;
   color: #344054;
   font-size: 0.78rem;
   font-weight: 850;
 }
 
 .history-list strong {
+  padding-top: 1px;
   font-size: 1rem;
   line-height: 1;
 }

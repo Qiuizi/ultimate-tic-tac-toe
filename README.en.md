@@ -27,7 +27,8 @@ Unlike regular tic-tac-toe, this game uses 9 small boards. The cell you choose d
 - Clear hints for whose turn it is, which board is forced, and when free choice is allowed.
 - Highlighted playable boards, small-board wins, and big-board wins.
 - Friendly feedback for invalid clicks.
-- Recent move history with board and cell positions.
+- Full move history with a collapsed recent view and an expand option.
+- Undo for the current game; two-player mode undoes one move, and computer mode usually undoes the player + AI round.
 - Scoreboard for `X` wins, `O` wins, and draws.
 - Score persistence with `localStorage`.
 - Responsive layout for desktop and mobile screens.
@@ -103,7 +104,7 @@ The static output is written to `dist/`.
 │   ├── build.mjs
 │   └── dev-server.mjs
 ├── src/
-│   ├── app.js        # UI rendering, interaction, mode, history, and score state
+│   ├── app.js        # UI rendering, interaction, mode, history, undo, and score state
 │   ├── game.js       # Ultimate rules, win checks, and AI
 │   └── styles.css
 └── test/
@@ -114,5 +115,5 @@ The static output is written to `dist/`.
 
 - Tune the hard AI evaluation so it makes fewer bad board-sending decisions.
 - Move deeper AI search into a Web Worker if the search depth is increased.
-- Expand move history into a full replay view.
+- Add a fuller review or replay view on top of the complete move history.
 - Add browser-level tests for mobile layout, `localStorage`, and a full player-vs-computer flow.

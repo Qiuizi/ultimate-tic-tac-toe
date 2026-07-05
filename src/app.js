@@ -3,9 +3,13 @@ import {
   AI_DIFFICULTIES,
   applyMove,
   canPlayMove,
+  createGameSnapshot,
   createInitialState,
   getAvailableBoards,
   getComputerMove,
+  getUndoMoveCount,
+  restoreGameSnapshot,
+  shouldIgnoreScheduledComputerMove,
 } from "./game.js";
 
 const app = document.querySelector("#app");
@@ -22,9 +26,9 @@ const EMPTY_SCORE = {
 };
 
 let state = createInitialState();
-let history = [state];
 let score = loadScore();
 let lastScoredGame = null;
+let snapshots = [];
 let gameMode = MODES.TWO_PLAYER;
 let aiDifficulty = AI_DIFFICULTIES.NORMAL;
 let computerTimer = null;
@@ -32,13 +36,13 @@ let isComputerThinking = false;
 let feedbackMessage = "";
 let feedbackTimer = null;
 let isRulesOpen = false;
+let isHistoryExpanded = false;
 
 function render() {
   const availableBoards = getAvailableBoards(state);
   const statusText = getStatusText(availableBoards);
   const releasedTarget = getReleasedTarget();
   const gameResult = getGameResult();
-  recordFinishedGame(gameResult);
 
   app.innerHTML = `
     <section class="game-layout" aria-label="终极井字棋">
@@ -58,7 +62,7 @@ function render() {
           ${renderDifficultySelector()}
           ${renderReleasedTargetNotice(releasedTarget)}
           ${renderScoreboard()}
-          ${renderActions(gameResult)}
+          ${renderActions()}
           ${renderRuleNotes()}
           ${renderMoveHistory()}
         </aside>
@@ -178,14 +182,14 @@ function renderScoreboard() {
   `;
 }
 
-function renderActions(gameResult) {
-  const undoDisabled = history.length <= 1 || gameResult || gameMode === MODES.COMPUTER;
+function renderActions() {
+  const undoDisabled = getUndoDisabled();
 
   return `
     <nav class="actions" aria-label="游戏操作">
       <button class="action-button" type="button" data-action="undo" ${undoDisabled ? "disabled" : ""}>
         <span aria-hidden="true">↶</span>
-        悔棋
+        撤销上一步
       </button>
       <button class="action-button primary" type="button" data-action="restart">
         <span aria-hidden="true">↻</span>
@@ -209,25 +213,36 @@ function renderRuleNotes() {
 }
 
 function renderMoveHistory() {
-  const recentMoves = state.moveHistory.slice(-8).reverse();
+  const visibleMoves = isHistoryExpanded
+    ? [...state.moveHistory].reverse()
+    : state.moveHistory.slice(-9).reverse();
+  const canToggleHistory = state.moveHistory.length > 9;
 
   return `
     <section class="move-history" aria-label="落子历史">
       <div class="panel-heading">
         <h2>落子历史</h2>
-        <span>${state.moveHistory.length} 步</span>
+        <div class="history-heading-actions">
+          <span>${state.moveHistory.length} 步</span>
+          ${
+            canToggleHistory
+              ? `<button class="history-toggle" type="button" data-action="toggle-history">
+                  ${isHistoryExpanded ? "收起" : "展开全部"}
+                </button>`
+              : ""
+          }
+        </div>
       </div>
       ${
-        recentMoves.length
+        visibleMoves.length
           ? `<ol class="history-list">
-              ${recentMoves
-                .map((move, index) => {
-                  const stepNumber = state.moveHistory.length - index;
+              ${visibleMoves
+                .map((move) => {
                   return `
                     <li>
-                      <span class="history-step">#${stepNumber}</span>
+                      <span class="history-step">#${move.step ?? ""}</span>
                       <strong class="player-${move.player.toLowerCase()}">${move.player}</strong>
-                      <span>${BOARD_NAMES[move.boardIndex]}小棋盘，第 ${move.cellIndex + 1} 格</span>
+                      <span>${formatMoveHistoryText(move)}</span>
                     </li>
                   `;
                 })
@@ -237,6 +252,26 @@ function renderMoveHistory() {
       }
     </section>
   `;
+}
+
+function formatMoveHistoryText(move) {
+  const details = [
+    `第 ${move.step} 步：${move.player} 下在小棋盘 ${move.boardIndex + 1}，格子 ${move.cellIndex + 1}`,
+  ];
+
+  if (move.wonSmallBoard) {
+    details.push("赢下该小棋盘");
+  }
+
+  if (move.wonGame) {
+    details.push("赢下整局");
+  }
+
+  if (move.drewGame) {
+    details.push("形成平局");
+  }
+
+  return `${details.join("，")}。`;
 }
 
 function renderRulesDialog() {
@@ -442,11 +477,13 @@ app.addEventListener("click", (event) => {
   }
 
   if (action === "undo") {
-    if (history.length > 1 && !getGameResult() && gameMode === MODES.TWO_PLAYER) {
-      history.pop();
-      state = history[history.length - 1];
-      render();
-    }
+    undoMove();
+    return;
+  }
+
+  if (action === "toggle-history") {
+    isHistoryExpanded = !isHistoryExpanded;
+    render();
     return;
   }
 
@@ -474,8 +511,7 @@ app.addEventListener("click", (event) => {
   const nextState = applyMove(state, boardIndex, cellIndex);
 
   if (nextState !== state) {
-    state = nextState;
-    history.push(state);
+    commitState(nextState);
     render();
     scheduleComputerMove();
   }
@@ -507,9 +543,10 @@ function setAiDifficulty(nextDifficulty) {
 function resetRound() {
   clearComputerTimer();
   state = createInitialState();
-  history = [state];
   lastScoredGame = null;
   isComputerThinking = false;
+  isHistoryExpanded = false;
+  resetSnapshots();
   render();
 }
 
@@ -525,16 +562,13 @@ function scheduleComputerMove() {
 
   clearComputerTimer();
   isComputerThinking = true;
-  const scheduledHistoryLength = history.length;
+  const scheduledMoveCount = state.moveHistory.length;
   render();
 
   computerTimer = setTimeout(() => {
     if (
       gameMode !== MODES.COMPUTER ||
-      history.length !== scheduledHistoryLength ||
-      state.currentPlayer !== "O" ||
-      state.winner ||
-      state.draw
+      shouldIgnoreScheduledComputerMove(state, scheduledMoveCount)
     ) {
       isComputerThinking = false;
       computerTimer = null;
@@ -548,8 +582,7 @@ function scheduleComputerMove() {
     if (move) {
       const nextState = applyMove(state, move.boardIndex, move.cellIndex);
       if (nextState !== state) {
-        state = nextState;
-        history.push(state);
+        commitState(nextState);
       }
     }
 
@@ -563,6 +596,63 @@ function clearComputerTimer() {
     clearTimeout(computerTimer);
     computerTimer = null;
   }
+}
+
+function commitState(nextState) {
+  state = nextState;
+  recordFinishedGame(getGameResult());
+  pushSnapshot();
+}
+
+function resetSnapshots() {
+  snapshots = [];
+  pushSnapshot();
+}
+
+function pushSnapshot() {
+  snapshots.push(
+    createGameSnapshot(state, {
+      lastScoredGame,
+    }),
+  );
+}
+
+function undoMove() {
+  if (getUndoDisabled()) {
+    return;
+  }
+
+  clearComputerTimer();
+  isComputerThinking = false;
+
+  const previousScoredGame = lastScoredGame;
+  const undoMoveCount = getUndoMoveCount(state, gameMode === MODES.COMPUTER);
+  const targetIndex = Math.max(0, snapshots.length - 1 - undoMoveCount);
+  const snapshot = snapshots[targetIndex];
+
+  snapshots = snapshots.slice(0, targetIndex + 1);
+  state = restoreGameSnapshot(snapshot);
+  lastScoredGame = snapshot.lastScoredGame ?? null;
+  rollbackScoreForUndo(previousScoredGame, lastScoredGame);
+  isHistoryExpanded = isHistoryExpanded && state.moveHistory.length > 9;
+  render();
+}
+
+function getUndoDisabled() {
+  return (
+    snapshots.length <= 1 ||
+    getUndoMoveCount(state, gameMode === MODES.COMPUTER) === 0 ||
+    isComputerThinking
+  );
+}
+
+function rollbackScoreForUndo(previousScoredGame, restoredScoredGame) {
+  if (!previousScoredGame || previousScoredGame === restoredScoredGame) {
+    return;
+  }
+
+  score[previousScoredGame] = Math.max(0, score[previousScoredGame] - 1);
+  saveScore(score);
 }
 
 function getCellDisabledReason(boardIndex, cellIndex) {
@@ -683,4 +773,5 @@ function saveScore(nextScore) {
   }
 }
 
+resetSnapshots();
 render();

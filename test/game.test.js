@@ -7,13 +7,17 @@ import {
   alphaBeta,
   applyMove,
   canPlayMove,
+  createGameSnapshot,
   createInitialState,
   evaluateGameState,
   getAvailableBoards,
   getComputerMove,
   getHardComputerMove,
   getLegalMoves,
+  getUndoMoveCount,
   getWinner,
+  restoreGameSnapshot,
+  shouldIgnoreScheduledComputerMove,
 } from "../src/game.js";
 
 test("first move can be played anywhere and forces the matching target board", () => {
@@ -149,6 +153,111 @@ test("initial state resets all board and turn data", () => {
   assert.equal(state.draw, false);
   assert.equal(state.moveHistory.length, 0);
   assert.equal(state.boards.every((board) => board.cells.every((cell) => cell === null)), true);
+});
+
+test("two-player undo restores the previous board snapshot", () => {
+  const initial = createInitialState();
+  const snapshots = [createGameSnapshot(initial)];
+  const afterMove = applyMove(initial, 4, 0);
+  snapshots.push(createGameSnapshot(afterMove));
+
+  const restored = restoreGameSnapshot(snapshots.at(-2));
+
+  assert.equal(restored.boards[4].cells[0], null);
+  assert.equal(restored.moveHistory.length, 0);
+  assert.equal(restored.forcedBoard, null);
+});
+
+test("two-player undo restores the correct current player", () => {
+  const initial = createInitialState();
+  const afterMove = applyMove(initial, 4, 0);
+  const restored = restoreGameSnapshot(createGameSnapshot(initial));
+
+  assert.equal(getUndoMoveCount(afterMove, false), 1);
+  assert.equal(restored.currentPlayer, PLAYERS.X);
+});
+
+test("computer-mode undo removes a player and AI round so the player can continue", () => {
+  const initial = createInitialState();
+  const snapshots = [createGameSnapshot(initial)];
+  const afterPlayer = applyMove(initial, 4, 0);
+  snapshots.push(createGameSnapshot(afterPlayer));
+  const afterComputer = applyMove(afterPlayer, 0, 4);
+  snapshots.push(createGameSnapshot(afterComputer));
+
+  const undoCount = getUndoMoveCount(afterComputer, true);
+  const restored = restoreGameSnapshot(snapshots[snapshots.length - 1 - undoCount]);
+
+  assert.equal(undoCount, 2);
+  assert.equal(restored.currentPlayer, PLAYERS.X);
+  assert.equal(restored.moveHistory.length, 0);
+  assert.equal(canPlayMove(restored, 4, 0), true);
+});
+
+test("undo preserves the Ultimate target-board rule", () => {
+  const initial = createInitialState();
+  const afterX = applyMove(initial, 4, 0);
+  const afterO = applyMove(afterX, 0, 4);
+
+  assert.equal(getUndoMoveCount(afterO, false), 1);
+
+  const restored = restoreGameSnapshot(createGameSnapshot(afterX));
+
+  assert.equal(restored.currentPlayer, PLAYERS.O);
+  assert.equal(restored.forcedBoard, 0);
+  assert.equal(canPlayMove(restored, 0, 1), true);
+  assert.equal(canPlayMove(restored, 4, 1), false);
+});
+
+test("undo can restore an ended game to a non-ended snapshot", () => {
+  const beforeWin = createInitialState();
+  beforeWin.boards[0].winner = PLAYERS.X;
+  beforeWin.boards[1].winner = PLAYERS.X;
+  beforeWin.boards[2].cells = [PLAYERS.X, PLAYERS.X, null, null, null, null, null, null, null];
+  const beforeSnapshot = createGameSnapshot(beforeWin, { lastScoredGame: null });
+
+  const won = applyMove(beforeWin, 2, 2);
+  const wonSnapshot = createGameSnapshot(won, { lastScoredGame: PLAYERS.X });
+  const restored = restoreGameSnapshot(beforeSnapshot);
+
+  assert.equal(wonSnapshot.state.winner, PLAYERS.X);
+  assert.equal(restored.winner, null);
+  assert.equal(restored.draw, false);
+  assert.equal(canPlayMove(restored, 2, 2), true);
+});
+
+test("restart clears move history and leaves only the initial undo snapshot", () => {
+  const played = applyMove(createInitialState(), 4, 0);
+  assert.equal(played.moveHistory.length, 1);
+
+  const restarted = createInitialState();
+  const snapshots = [createGameSnapshot(restarted)];
+
+  assert.equal(restarted.moveHistory.length, 0);
+  assert.equal(snapshots.length, 1);
+});
+
+test("mode or difficulty reset clears move history and undo snapshots", () => {
+  const played = applyMove(createInitialState(), 4, 0);
+  assert.equal(played.moveHistory.length, 1);
+
+  const resetState = createInitialState();
+  const snapshots = [createGameSnapshot(resetState)];
+
+  assert.equal(resetState.moveHistory.length, 0);
+  assert.equal(getUndoMoveCount(resetState, true), 0);
+  assert.equal(snapshots.length, 1);
+});
+
+test("stale scheduled AI move is ignored after undo changes the move count", () => {
+  const afterPlayer = applyMove(createInitialState(), 4, 0);
+  const scheduledMoveCount = afterPlayer.moveHistory.length;
+
+  assert.equal(shouldIgnoreScheduledComputerMove(afterPlayer, scheduledMoveCount), false);
+
+  const restored = restoreGameSnapshot(createGameSnapshot(createInitialState()));
+
+  assert.equal(shouldIgnoreScheduledComputerMove(restored, scheduledMoveCount), true);
 });
 
 test("winner helper returns line details", () => {

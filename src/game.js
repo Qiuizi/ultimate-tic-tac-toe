@@ -125,6 +125,7 @@ export function applyMove(state, boardIndex, cellIndex) {
 
   const nextState = cloneState(state);
   const board = nextState.boards[boardIndex];
+  const boardWinnerBefore = board.winner;
   const player = nextState.currentPlayer;
 
   board.cells[cellIndex] = player;
@@ -142,10 +143,14 @@ export function applyMove(state, boardIndex, cellIndex) {
     !nextState.winner && nextState.boards.every((smallBoard) => !isBoardPlayable(smallBoard));
 
   nextState.moveHistory.push({
+    step: nextState.moveHistory.length + 1,
     player,
     boardIndex,
     cellIndex,
     forcedBoardBefore: state.forcedBoard,
+    wonSmallBoard: !boardWinnerBefore && board.winner === player,
+    wonGame: nextState.winner === player,
+    drewGame: nextState.draw,
   });
 
   const targetBoard = nextState.boards[cellIndex];
@@ -366,6 +371,45 @@ export function cloneState(state) {
 
 export function cloneGameState(state) {
   return cloneState(state);
+}
+
+export function createGameSnapshot(state, metadata = {}) {
+  return {
+    state: cloneState(state),
+    ...metadata,
+  };
+}
+
+export function restoreGameSnapshot(snapshot) {
+  return cloneState(snapshot.state);
+}
+
+export function getUndoMoveCount(state, isComputerMode = false) {
+  const moves = state.moveHistory;
+  if (moves.length === 0) {
+    return 0;
+  }
+
+  if (!isComputerMode) {
+    return 1;
+  }
+
+  const lastMove = moves.at(-1);
+  const previousMove = moves.at(-2);
+  if (lastMove?.player === PLAYERS.O && previousMove?.player === PLAYERS.X) {
+    return 2;
+  }
+
+  return 1;
+}
+
+export function shouldIgnoreScheduledComputerMove(state, scheduledMoveCount) {
+  return (
+    state.moveHistory.length !== scheduledMoveCount ||
+    state.currentPlayer !== PLAYERS.O ||
+    state.winner ||
+    state.draw
+  );
 }
 
 function findMoveByOutcome(state, legalMoves, player, outcome) {
