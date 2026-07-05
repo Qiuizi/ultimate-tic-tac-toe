@@ -11,12 +11,23 @@ import {
   restoreGameSnapshot,
   shouldIgnoreScheduledComputerMove,
 } from "./game.js";
+import {
+  cleanupOnlineSubscription,
+  createRoom as createOnlineRoom,
+  joinRoom as joinOnlineRoom,
+  leaveRoom as leaveOnlineRoom,
+  ONLINE_SYNC_STATUS,
+  subscribeToRoom,
+  updateRoomState,
+} from "./online.js";
+import { normalizeRoomCode, ROOM_STATUS } from "./room.js";
 
 const app = document.querySelector("#app");
 const SCORE_STORAGE_KEY = "ultimate-tic-tac-toe-score";
 const MODES = {
   TWO_PLAYER: "two-player",
   COMPUTER: "computer",
+  ONLINE: "online",
 };
 const COMPUTER_DELAY_MS = 650;
 const EMPTY_SCORE = {
@@ -37,6 +48,10 @@ let feedbackMessage = "";
 let feedbackTimer = null;
 let isRulesOpen = false;
 let isHistoryExpanded = false;
+let onlineRoom = null;
+let onlineSession = null;
+let onlineSyncStatus = ONLINE_SYNC_STATUS.DISCONNECTED;
+let onlineRoomCodeInput = "";
 
 function render() {
   const availableBoards = getAvailableBoards(state);
@@ -60,6 +75,7 @@ function render() {
           ${renderStatusCard(statusText, gameResult)}
           ${renderModeSelector()}
           ${renderDifficultySelector()}
+          ${renderOnlinePanel()}
           ${renderReleasedTargetNotice(releasedTarget)}
           ${renderScoreboard()}
           ${renderActions()}
@@ -120,10 +136,13 @@ function renderModeSelector() {
       <span class="mode-label">游戏模式</span>
       <div class="mode-toggle" role="group" aria-label="选择游戏模式" data-testid="mode-select">
         <button class="mode-button ${gameMode === MODES.TWO_PLAYER ? "is-active" : ""}" type="button" data-mode="${MODES.TWO_PLAYER}">
-          两人对战
+          本地双人
         </button>
         <button class="mode-button ${gameMode === MODES.COMPUTER ? "is-active" : ""}" type="button" data-mode="${MODES.COMPUTER}">
           人机对战
+        </button>
+        <button class="mode-button ${gameMode === MODES.ONLINE ? "is-active" : ""}" type="button" data-mode="${MODES.ONLINE}">
+          远程对战
         </button>
       </div>
     </section>
@@ -150,6 +169,74 @@ function renderDifficultySelector() {
   `;
 }
 
+function renderOnlinePanel() {
+  if (gameMode !== MODES.ONLINE) {
+    return "";
+  }
+
+  const roomCode = onlineRoom?.code || onlineSession?.roomCode || "";
+  const role = onlineSession?.role || "未加入";
+  const opponentStatus = getOpponentStatusText();
+  const canCopy = Boolean(roomCode);
+
+  return `
+    <section class="online-panel" aria-label="远程对战配置" data-testid="online-panel">
+      <div class="panel-heading">
+        <h2>Mock 联机预览</h2>
+        <span>配置中</span>
+      </div>
+      <p class="online-note">当前只模拟远程对战 UI 和状态，不是真实跨设备联机。</p>
+      <div class="online-actions">
+        <button class="action-button primary" type="button" data-action="create-room" data-testid="create-room-button" ${onlineSession ? "disabled" : ""}>
+          创建房间
+        </button>
+        <label class="room-code-field">
+          <span>加入房间</span>
+          <input
+            type="text"
+            inputmode="latin"
+            maxlength="8"
+            placeholder="输入 6 位房间码"
+            value="${onlineRoomCodeInput}"
+            data-testid="join-room-input"
+            data-field="room-code"
+            ${onlineSession ? "disabled" : ""}
+          >
+        </label>
+        <button class="action-button" type="button" data-action="join-room" data-testid="join-room-button" ${onlineSession ? "disabled" : ""}>
+          加入房间
+        </button>
+      </div>
+      <dl class="online-room-meta">
+        <div>
+          <dt>房间码</dt>
+          <dd data-testid="room-code-display">${roomCode || "未创建"}</dd>
+        </div>
+        <div>
+          <dt>当前身份</dt>
+          <dd data-testid="online-role-display">${role}</dd>
+        </div>
+        <div>
+          <dt>对手状态</dt>
+          <dd data-testid="opponent-status">${opponentStatus}</dd>
+        </div>
+        <div>
+          <dt>同步状态</dt>
+          <dd data-testid="sync-status">${onlineSyncStatus}</dd>
+        </div>
+      </dl>
+      <div class="online-secondary-actions">
+        <button class="action-button" type="button" data-action="copy-room-code" data-testid="copy-room-code-button" ${canCopy ? "" : "disabled"}>
+          复制房间码
+        </button>
+        <button class="action-button subtle" type="button" data-action="leave-room" data-testid="leave-room-button" ${onlineSession ? "" : "disabled"}>
+          退出房间
+        </button>
+      </div>
+    </section>
+  `;
+}
+
 function renderReleasedTargetNotice(releasedTarget) {
   if (!releasedTarget) {
     return "";
@@ -164,19 +251,21 @@ function renderReleasedTargetNotice(releasedTarget) {
 }
 
 function renderScoreboard() {
+  const visibleScore = getVisibleScore();
+
   return `
     <section class="scoreboard" aria-label="比分">
       <div class="score-card score-x">
         <span class="score-label">X</span>
-        <strong data-testid="score-x-value">${score.X}</strong>
+        <strong data-testid="score-x-value">${visibleScore.X}</strong>
       </div>
       <div class="score-card score-o">
         <span class="score-label">O</span>
-        <strong data-testid="score-o-value">${score.O}</strong>
+        <strong data-testid="score-o-value">${visibleScore.O}</strong>
       </div>
       <div class="score-card">
         <span class="score-label">平局</span>
-        <strong data-testid="score-draw-value">${score.draw}</strong>
+        <strong data-testid="score-draw-value">${visibleScore.draw}</strong>
       </div>
     </section>
   `;
@@ -330,7 +419,7 @@ function renderSmallBoard(board, boardIndex, boardState) {
 }
 
 function renderCell(board, boardIndex, cell, cellIndex) {
-  const playable = canPlayMove(state, boardIndex, cellIndex) && !isComputerThinking;
+  const playable = isCellPlayable(boardIndex, cellIndex);
   const disabledReason = getCellDisabledReason(boardIndex, cellIndex);
   const winCell = board.winningLine?.includes(cellIndex) ? " is-small-win" : "";
   const latestMove = state.moveHistory.at(-1);
@@ -383,6 +472,37 @@ function getStatusText(availableBoards) {
     };
   }
 
+  if (gameMode === MODES.ONLINE) {
+    if (!onlineSession || !onlineRoom) {
+      return {
+        title: "远程对战配置中",
+        detail: "创建或加入 Mock 房间后才能落子。",
+      };
+    }
+
+    if (onlineRoom.status === ROOM_STATUS.WAITING) {
+      return {
+        title: "等待对手加入",
+        detail: `房间 ${onlineRoom.code} 已创建，你是 ${onlineSession.role}。`,
+      };
+    }
+
+    if (state.currentPlayer !== onlineSession.role) {
+      return {
+        title: "等待对手落子",
+        detail: `你是 ${onlineSession.role}，当前轮到 ${state.currentPlayer}。`,
+      };
+    }
+
+    return {
+      title: `轮到你落子`,
+      detail:
+        availableBoards.length === 1 && state.forcedBoard !== null
+          ? `你必须下在${BOARD_NAMES[availableBoards[0]]}区域`
+          : "你可以选择任意未结束区域",
+    };
+  }
+
   if (gameMode === MODES.COMPUTER) {
     return {
       title: "轮到玩家",
@@ -423,6 +543,20 @@ function getConstraintText(availableBoards, releasedTarget = getReleasedTarget()
     return "电脑思考中...请稍候";
   }
 
+  if (gameMode === MODES.ONLINE) {
+    if (!onlineSession || !onlineRoom) {
+      return "Mock 远程模式：尚未加入房间";
+    }
+
+    if (onlineRoom.status === ROOM_STATUS.WAITING) {
+      return "Mock 远程模式：等待对手加入";
+    }
+
+    if (state.currentPlayer !== onlineSession.role) {
+      return `Mock 远程模式：等待 ${state.currentPlayer} 落子`;
+    }
+  }
+
   if (availableBoards.length === 1 && state.forcedBoard !== null) {
     return `强制区域：${BOARD_NAMES[availableBoards[0]]}`;
   }
@@ -434,7 +568,7 @@ function getConstraintText(availableBoards, releasedTarget = getReleasedTarget()
   return "自由选择：目标区域已结束或首步";
 }
 
-app.addEventListener("click", (event) => {
+app.addEventListener("click", async (event) => {
   const target = event.target.closest("button");
   if (!target) {
     return;
@@ -445,7 +579,7 @@ app.addEventListener("click", (event) => {
   const difficulty = target.dataset.difficulty;
 
   if (mode) {
-    setGameMode(mode);
+    await setGameMode(mode);
     return;
   }
 
@@ -455,6 +589,11 @@ app.addEventListener("click", (event) => {
   }
 
   if (action === "restart") {
+    if (gameMode === MODES.ONLINE && onlineSession) {
+      showFeedback("Mock 联机预览暂不支持同步重开。");
+      return;
+    }
+
     resetRound();
     return;
   }
@@ -472,6 +611,11 @@ app.addEventListener("click", (event) => {
   }
 
   if (action === "reset-score") {
+    if (gameMode === MODES.ONLINE && onlineSession) {
+      showFeedback("Mock 房间分数只在房间内临时记录。");
+      return;
+    }
+
     score = { ...EMPTY_SCORE };
     saveScore(score);
     render();
@@ -480,6 +624,26 @@ app.addEventListener("click", (event) => {
 
   if (action === "undo") {
     undoMove();
+    return;
+  }
+
+  if (action === "create-room") {
+    await handleCreateRoom();
+    return;
+  }
+
+  if (action === "join-room") {
+    await handleJoinRoom();
+    return;
+  }
+
+  if (action === "leave-room") {
+    await handleLeaveRoom();
+    return;
+  }
+
+  if (action === "copy-room-code") {
+    await handleCopyRoomCode();
     return;
   }
 
@@ -498,6 +662,14 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  if (gameMode === MODES.ONLINE) {
+    const disabledReason = getOnlineCellDisabledReason();
+    if (disabledReason) {
+      showFeedback(disabledReason);
+      return;
+    }
+  }
+
   if (state.winner || state.draw) {
     showFeedback("本局已经结束，请重新开始。");
     return;
@@ -513,15 +685,34 @@ app.addEventListener("click", (event) => {
   const nextState = applyMove(state, boardIndex, cellIndex);
 
   if (nextState !== state) {
+    if (gameMode === MODES.ONLINE) {
+      await commitOnlineState(nextState);
+      return;
+    }
+
     commitState(nextState);
     render();
     scheduleComputerMove();
   }
 });
 
-function setGameMode(nextMode) {
+app.addEventListener("input", (event) => {
+  const target = event.target;
+  if (target?.dataset?.field !== "room-code") {
+    return;
+  }
+
+  onlineRoomCodeInput = normalizeRoomCode(target.value);
+  target.value = onlineRoomCodeInput;
+});
+
+async function setGameMode(nextMode) {
   if (!Object.values(MODES).includes(nextMode) || nextMode === gameMode) {
     return;
+  }
+
+  if (gameMode === MODES.ONLINE) {
+    await resetOnlineSession();
   }
 
   gameMode = nextMode;
@@ -550,6 +741,115 @@ function resetRound() {
   isHistoryExpanded = false;
   resetSnapshots();
   render();
+}
+
+async function handleCreateRoom() {
+  onlineSyncStatus = ONLINE_SYNC_STATUS.SYNCING;
+  render();
+
+  const result = await createOnlineRoom();
+  onlineSession = result.session;
+  onlineRoom = result.room;
+  onlineRoomCodeInput = result.room.code;
+  state = result.room.gameState;
+  resetSnapshots();
+  subscribeToCurrentRoom();
+  onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
+  render();
+}
+
+async function handleJoinRoom() {
+  const roomCode = normalizeRoomCode(onlineRoomCodeInput);
+  if (!roomCode) {
+    showFeedback("请输入 Mock 房间码。");
+    return;
+  }
+
+  onlineSyncStatus = ONLINE_SYNC_STATUS.SYNCING;
+  render();
+
+  const result = await joinOnlineRoom(roomCode);
+  if (!result.ok) {
+    onlineSyncStatus = ONLINE_SYNC_STATUS.DISCONNECTED;
+    showFeedback(result.error || "加入 Mock 房间失败。");
+    return;
+  }
+
+  onlineSession = result.session;
+  onlineRoom = result.room;
+  state = result.room.gameState;
+  resetSnapshots();
+  subscribeToCurrentRoom();
+  onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
+  render();
+}
+
+async function handleLeaveRoom() {
+  await resetOnlineSession();
+  state = createInitialState();
+  lastScoredGame = null;
+  resetSnapshots();
+  render();
+}
+
+async function handleCopyRoomCode() {
+  const roomCode = onlineRoom?.code || onlineSession?.roomCode;
+  if (!roomCode) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard?.writeText(roomCode);
+    showFeedback("房间码已复制。");
+  } catch {
+    showFeedback(`房间码：${roomCode}`);
+  }
+}
+
+async function commitOnlineState(nextState) {
+  if (!onlineRoom || !onlineSession) {
+    return;
+  }
+
+  onlineSyncStatus = ONLINE_SYNC_STATUS.SYNCING;
+  render();
+
+  const result = await updateRoomState(onlineRoom.code, nextState, onlineRoom.version);
+  if (!result.ok) {
+    onlineRoom = result.room || onlineRoom;
+    state = onlineRoom.gameState;
+    onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
+    showFeedback("Mock 状态版本已变化，请按最新棋局继续。");
+    return;
+  }
+
+  onlineRoom = result.room;
+  state = result.room.gameState;
+  onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
+  render();
+}
+
+function subscribeToCurrentRoom() {
+  if (!onlineSession) {
+    return;
+  }
+
+  subscribeToRoom(onlineSession.roomCode, (room) => {
+    onlineRoom = room;
+    state = room.gameState;
+    onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
+    isHistoryExpanded = isHistoryExpanded && state.moveHistory.length > 9;
+    render();
+  });
+}
+
+async function resetOnlineSession() {
+  cleanupOnlineSubscription();
+  await leaveOnlineRoom();
+  onlineRoom = null;
+  onlineSession = null;
+  onlineRoomCodeInput = "";
+  onlineSyncStatus = ONLINE_SYNC_STATUS.DISCONNECTED;
 }
 
 function scheduleComputerMove() {
@@ -642,6 +942,7 @@ function undoMove() {
 
 function getUndoDisabled() {
   return (
+    gameMode === MODES.ONLINE ||
     snapshots.length <= 1 ||
     getUndoMoveCount(state, gameMode === MODES.COMPUTER) === 0 ||
     isComputerThinking
@@ -658,6 +959,11 @@ function rollbackScoreForUndo(previousScoredGame, restoredScoredGame) {
 }
 
 function getCellDisabledReason(boardIndex, cellIndex) {
+  const onlineDisabledReason = getOnlineCellDisabledReason();
+  if (onlineDisabledReason) {
+    return onlineDisabledReason;
+  }
+
   if (isComputerThinking || (gameMode === MODES.COMPUTER && state.currentPlayer === "O")) {
     return "电脑思考中，请稍候。";
   }
@@ -686,6 +992,64 @@ function getCellDisabledReason(boardIndex, cellIndex) {
   }
 
   return "";
+}
+
+function isCellPlayable(boardIndex, cellIndex) {
+  return (
+    canPlayMove(state, boardIndex, cellIndex) &&
+    !isComputerThinking &&
+    !getOnlineCellDisabledReason()
+  );
+}
+
+function getOnlineCellDisabledReason() {
+  if (gameMode !== MODES.ONLINE) {
+    return "";
+  }
+
+  if (!onlineSession || !onlineRoom) {
+    return "请先创建或加入 Mock 房间。";
+  }
+
+  if (onlineSyncStatus === ONLINE_SYNC_STATUS.SYNCING) {
+    return "Mock 同步中，请稍候。";
+  }
+
+  if (onlineRoom.status === ROOM_STATUS.WAITING) {
+    return "等待对手加入后才能开始。";
+  }
+
+  if (onlineRoom.status === ROOM_STATUS.CLOSED) {
+    return "这个 Mock 房间已关闭。";
+  }
+
+  if (state.currentPlayer !== onlineSession.role) {
+    return "等待对手落子。";
+  }
+
+  return "";
+}
+
+function getOpponentStatusText() {
+  if (!onlineRoom || !onlineSession) {
+    return "未加入";
+  }
+
+  const opponentRole = onlineSession.role === "X" ? "O" : "X";
+  const opponent = onlineRoom.players?.[opponentRole];
+  if (opponent?.joined) {
+    return "已加入";
+  }
+
+  return "等待加入";
+}
+
+function getVisibleScore() {
+  if (gameMode === MODES.ONLINE && onlineRoom?.score) {
+    return onlineRoom.score;
+  }
+
+  return score;
 }
 
 function showFeedback(message) {

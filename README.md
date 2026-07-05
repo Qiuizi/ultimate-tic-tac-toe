@@ -25,6 +25,7 @@ English version: [README.en.md](./README.en.md)
 - 本地双人对战。
 - 人机对战，玩家是 `X`，电脑是 `O`。
 - 普通 / 困难 两档 AI。
+- 远程对战入口和 Mock 联机预览面板，用于 v1.3.0 联机架构开发。
 - 页面里有游戏规则说明，新玩家不用先去 README 找玩法。
 - 会提示当前该谁下、必须下哪个小棋盘，以及什么时候可以自由选择。
 - 当前能下的小棋盘会高亮。
@@ -36,6 +37,17 @@ English version: [README.en.md](./README.en.md)
 - 分数会存在 `localStorage`，刷新后还在。
 - 重新开始只重置当前局，不清空比分。
 - 响应式布局，手机上也能玩。
+
+## 远程对战状态
+
+v1.3.0 开始加入远程对战架构。当前阶段只包含：
+
+- 远程对战模式入口。
+- 创建房间 / 加入房间 / 退出房间 UI。
+- 6 位房间码、房间状态结构和本地远程 session 状态。
+- `src/online.js` Mock adapter，用内存对象模拟房间创建、加入、订阅和版本冲突。
+
+当前还不是真实跨设备联机，也没有连接 Supabase。后续会把 Mock adapter 替换为 Supabase Realtime + `rooms` 表保存房间状态的实现。
 
 ## AI
 
@@ -97,6 +109,8 @@ Playwright 测试覆盖页面加载、规则弹窗、双人模式、人机模式
 ```bash
 node --check src/game.js
 node --check src/app.js
+node --check src/room.js
+node --check src/online.js
 ```
 
 ## 构建
@@ -126,6 +140,8 @@ npm run build
 ├── src/
 │   ├── app.js        # 页面渲染、交互、模式、历史、撤销和比分
 │   ├── game.js       # 规则、胜负判断、AI
+│   ├── online.js     # Mock 联机 adapter，后续替换为 Supabase Realtime
+│   ├── room.js       # 房间码、房间状态和远程 session 纯函数
 │   └── styles.css
 ├── tests/
 │   └── e2e/
@@ -137,6 +153,7 @@ npm run build
 ## 之后可以继续做
 
 - 困难 AI 现在只是浅层搜索，后面可以继续调评估函数，让它少犯一些“送棋盘”的错误。
+- 接入 Supabase Realtime 和 `rooms` 表，实现真实跨设备远程对战。
 - 如果 AI 搜索继续加深，可以考虑放到 Web Worker 里，避免影响页面操作。
 - 后面可以给完整落子历史增加更细的复盘或回放视图。
 

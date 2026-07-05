@@ -150,9 +150,74 @@ test("mobile viewport opens without horizontal overflow and rules still work", a
   await expect(page.getByTestId("rules-dialog")).toBeHidden();
 });
 
+test("online mode shows the mock room panel", async ({ page }) => {
+  await switchToOnlineMode(page);
+
+  await expect(page.getByTestId("online-panel")).toBeVisible();
+  await expect(page.getByTestId("online-panel")).toContainText("Mock 联机预览");
+  await expect(page.getByTestId("create-room-button")).toBeVisible();
+  await expect(page.getByTestId("join-room-input")).toBeVisible();
+  await expect(page.getByTestId("join-room-button")).toBeVisible();
+  await expect(page.getByTestId("sync-status")).toHaveText("Mock disconnected");
+});
+
+test("online mode creates a mock room as X", async ({ page }) => {
+  await switchToOnlineMode(page);
+
+  await page.getByTestId("create-room-button").click();
+
+  await expect(page.getByTestId("room-code-display")).toHaveText(/^[A-Z0-9]{6}$/);
+  await expect(page.getByTestId("online-role-display")).toHaveText("X");
+  await expect(page.getByTestId("opponent-status")).toHaveText("等待加入");
+  await expect(page.getByTestId("sync-status")).toHaveText("Mock connected");
+});
+
+test("online mode can mock join an existing room as O", async ({ page }) => {
+  await switchToOnlineMode(page);
+  await page.getByTestId("create-room-button").click();
+  const roomCode = await page.getByTestId("room-code-display").innerText();
+
+  await page.getByTestId("leave-room-button").click();
+  await page.getByTestId("join-room-input").fill(roomCode);
+  await page.getByTestId("join-room-button").click();
+
+  await expect(page.getByTestId("room-code-display")).toHaveText(roomCode);
+  await expect(page.getByTestId("online-role-display")).toHaveText("O");
+  await expect(page.getByTestId("opponent-status")).toHaveText("已加入");
+  await expect(page.getByTestId("sync-status")).toHaveText("Mock connected");
+});
+
+test("online mode clears room state after leaving", async ({ page }) => {
+  await switchToOnlineMode(page);
+  await page.getByTestId("create-room-button").click();
+  await expect(page.getByTestId("online-role-display")).toHaveText("X");
+
+  await page.getByTestId("leave-room-button").click();
+
+  await expect(page.getByTestId("room-code-display")).toHaveText("未创建");
+  await expect(page.getByTestId("online-role-display")).toHaveText("未加入");
+  await expect(page.getByTestId("opponent-status")).toHaveText("未加入");
+  await expect(page.getByTestId("sync-status")).toHaveText("Mock disconnected");
+});
+
+test("online mode disables board before joining a room", async ({ page }) => {
+  await switchToOnlineMode(page);
+
+  await expect(page.getByTestId("cell-4-0")).toHaveAttribute("aria-disabled", "true");
+  await expect(page.getByTestId("cell-4-0")).toHaveClass(/is-disabled/);
+
+  await expect(filledCells(page)).toHaveCount(0);
+  await expect(page.getByTestId("move-history")).toContainText("还没有落子");
+});
+
 async function switchToComputerMode(page) {
   await page.getByTestId("mode-select").getByRole("button", { name: "人机对战" }).click();
   await expect(page.getByTestId("move-history")).toContainText("还没有落子");
+}
+
+async function switchToOnlineMode(page) {
+  await page.getByTestId("mode-select").getByRole("button", { name: "远程对战" }).click();
+  await expect(page.getByTestId("online-panel")).toBeVisible();
 }
 
 async function playCell(page, boardIndex, cellIndex) {

@@ -128,6 +128,7 @@ h1 {
 
 .status-card,
 .mode-card,
+.online-panel,
 .notice-card,
 .scoreboard,
 .rule-notes,
@@ -212,7 +213,7 @@ h1 {
 
 .mode-toggle {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -242,6 +243,92 @@ h1 {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: #0f7a53;
+}
+
+.online-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.online-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.48;
+}
+
+.online-actions,
+.online-secondary-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.room-code-field {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.room-code-field span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.room-code-field input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.room-code-field input:focus {
+  border-color: var(--accent);
+  outline: 3px solid rgb(19 138 94 / 18%);
+}
+
+.room-code-field input:disabled {
+  opacity: 0.58;
+}
+
+.online-room-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.online-room-meta div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #d9e0ea;
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.online-room-meta dt {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.online-room-meta dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 850;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .scoreboard {
@@ -807,6 +894,7 @@ h1 {
   }
 
   .status-card,
+  .online-panel,
   .actions,
   .move-history {
     grid-column: 1 / -1;
@@ -838,6 +926,11 @@ h1 {
 
   .scoreboard {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mode-toggle,
+  .online-room-meta {
+    grid-template-columns: 1fr;
   }
 
   .macro-board {

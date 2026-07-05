@@ -23,6 +23,7 @@ Unlike regular tic-tac-toe, this game uses 9 small boards. The cell you choose d
 - Local two-player mode.
 - Computer mode: player is `X`, computer is `O`.
 - Normal and hard AI options.
+- Online mode entry and a mock networking preview panel for the v1.3.0 online architecture.
 - In-page rules modal for new players.
 - Clear hints for whose turn it is, which board is forced, and when free choice is allowed.
 - Highlighted playable boards, small-board wins, and big-board wins.
@@ -32,6 +33,17 @@ Unlike regular tic-tac-toe, this game uses 9 small boards. The cell you choose d
 - Scoreboard for `X` wins, `O` wins, and draws.
 - Score persistence with `localStorage`.
 - Responsive layout for desktop and mobile screens.
+
+## Online Mode Status
+
+v1.3.0 has started the online-play architecture work. The current stage includes:
+
+- an online mode entry,
+- create room / join room / leave room UI,
+- 6-character room codes, room state, and a local online session state,
+- `src/online.js`, a mock adapter that uses in-memory rooms to simulate room creation, joining, subscriptions, and version conflicts.
+
+This is not real cross-device online play yet, and it does not connect to Supabase. A later phase will replace the mock adapter with Supabase Realtime plus a `rooms` table as the shared room-state store.
 
 ## AI Strategy
 
@@ -93,6 +105,8 @@ You can also run syntax checks directly:
 ```bash
 node --check src/game.js
 node --check src/app.js
+node --check src/room.js
+node --check src/online.js
 ```
 
 ## Build
@@ -115,6 +129,8 @@ The static output is written to `dist/`.
 ├── src/
 │   ├── app.js        # UI rendering, interaction, mode, history, undo, and score state
 │   ├── game.js       # Ultimate rules, win checks, and AI
+│   ├── online.js     # Mock online adapter, later replaceable with Supabase Realtime
+│   ├── room.js       # Room code, room state, and online session utilities
 │   └── styles.css
 ├── tests/
 │   └── e2e/
@@ -126,5 +142,6 @@ The static output is written to `dist/`.
 ## Future Improvements
 
 - Tune the hard AI evaluation so it makes fewer bad board-sending decisions.
+- Connect Supabase Realtime and a `rooms` table for real cross-device online play.
 - Move deeper AI search into a Web Worker if the search depth is increased.
 - Add a fuller review or replay view on top of the complete move history.

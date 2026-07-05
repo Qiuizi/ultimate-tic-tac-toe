@@ -19,6 +19,17 @@ import {
   restoreGameSnapshot,
   shouldIgnoreScheduledComputerMove,
 } from "../src/game.js";
+import {
+  createInitialRoomState,
+  generateRoomCode,
+  normalizeRoomCode,
+} from "../src/room.js";
+import {
+  createRoom,
+  joinRoom,
+  resetMockOnlineState,
+  updateRoomState,
+} from "../src/online.js";
 
 test("first move can be played anywhere and forces the matching target board", () => {
   const state = createInitialState();
@@ -258,6 +269,58 @@ test("stale scheduled AI move is ignored after undo changes the move count", () 
   const restored = restoreGameSnapshot(createGameSnapshot(createInitialState()));
 
   assert.equal(shouldIgnoreScheduledComputerMove(restored, scheduledMoveCount), true);
+});
+
+test("room code is six uppercase alphanumeric characters", () => {
+  const code = generateRoomCode();
+
+  assert.match(code, /^[A-Z0-9]{6}$/);
+});
+
+test("room code normalization removes whitespace and uppercases letters", () => {
+  assert.equal(normalizeRoomCode(" ab 12 cd "), "AB12CD");
+});
+
+test("initial room state has X joined and O waiting", () => {
+  const room = createInitialRoomState("ABC123");
+
+  assert.equal(room.code, "ABC123");
+  assert.equal(room.status, "waiting");
+  assert.equal(room.version, 1);
+  assert.equal(room.moveNumber, 0);
+  assert.equal(room.players.X.joined, true);
+  assert.equal(room.players.X.online, true);
+  assert.equal(room.players.O.joined, false);
+  assert.equal(room.players.O.online, false);
+  assert.equal(room.gameState.currentPlayer, PLAYERS.X);
+});
+
+test("mock online adapter lets O join a created room", async () => {
+  resetMockOnlineState();
+
+  const created = await createRoom();
+  const joined = await joinRoom(created.room.code);
+
+  assert.equal(created.role, PLAYERS.X);
+  assert.equal(joined.ok, true);
+  assert.equal(joined.role, PLAYERS.O);
+  assert.equal(joined.room.status, "playing");
+  assert.equal(joined.room.players.O.joined, true);
+  assert.equal(joined.room.players.O.online, true);
+});
+
+test("mock online adapter rejects stale room state updates", async () => {
+  resetMockOnlineState();
+
+  const created = await createRoom();
+  const joined = await joinRoom(created.room.code);
+  const nextState = applyMove(joined.room.gameState, 4, 0);
+  const firstUpdate = await updateRoomState(joined.room.code, nextState, joined.room.version);
+  const staleUpdate = await updateRoomState(joined.room.code, nextState, joined.room.version);
+
+  assert.equal(firstUpdate.ok, true);
+  assert.equal(staleUpdate.ok, false);
+  assert.equal(staleUpdate.error, "Mock version conflict");
 });
 
 test("winner helper returns line details", () => {
