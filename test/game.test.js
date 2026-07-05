@@ -24,9 +24,13 @@ import {
   generateRoomCode,
   normalizeRoomCode,
 } from "../src/room.js";
+import { hasSupabaseConfig } from "../src/config.js";
 import {
   createRoom,
+  getOnlineAdapterStatus,
+  getOnlinePlayerRole,
   joinRoom,
+  leaveRoom,
   resetMockOnlineState,
   updateRoomState,
 } from "../src/online.js";
@@ -309,6 +313,32 @@ test("mock online adapter lets O join a created room", async () => {
   assert.equal(joined.room.players.O.online, true);
 });
 
+test("missing Supabase config falls back to mock online adapter", () => {
+  resetMockOnlineState();
+
+  assert.equal(hasSupabaseConfig(), false);
+  assert.equal(getOnlineAdapterStatus().provider, "mock");
+});
+
+test("Supabase config requires provider, URL, and publishable key", () => {
+  assert.equal(
+    hasSupabaseConfig({
+      ONLINE_PROVIDER: "supabase",
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_PUBLISHABLE_KEY: "public-key",
+    }),
+    true,
+  );
+  assert.equal(
+    hasSupabaseConfig({
+      ONLINE_PROVIDER: "supabase",
+      SUPABASE_URL: "https://example.supabase.co",
+      SUPABASE_PUBLISHABLE_KEY: "",
+    }),
+    false,
+  );
+});
+
 test("mock online adapter rejects stale room state updates", async () => {
   resetMockOnlineState();
 
@@ -321,6 +351,16 @@ test("mock online adapter rejects stale room state updates", async () => {
   assert.equal(firstUpdate.ok, true);
   assert.equal(staleUpdate.ok, false);
   assert.equal(staleUpdate.error, "Mock version conflict");
+});
+
+test("mock online leave clears the local player role", async () => {
+  resetMockOnlineState();
+
+  await createRoom();
+  assert.equal(getOnlinePlayerRole(), PLAYERS.X);
+
+  await leaveRoom();
+  assert.equal(getOnlinePlayerRole(), null);
 });
 
 test("winner helper returns line details", () => {

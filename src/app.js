@@ -14,6 +14,7 @@ import {
 import {
   cleanupOnlineSubscription,
   createRoom as createOnlineRoom,
+  getOnlineAdapterStatus,
   joinRoom as joinOnlineRoom,
   leaveRoom as leaveOnlineRoom,
   ONLINE_SYNC_STATUS,
@@ -50,7 +51,7 @@ let isRulesOpen = false;
 let isHistoryExpanded = false;
 let onlineRoom = null;
 let onlineSession = null;
-let onlineSyncStatus = ONLINE_SYNC_STATUS.DISCONNECTED;
+let onlineSyncStatus = getDisconnectedStatus();
 let onlineRoomCodeInput = "";
 
 function render() {
@@ -178,14 +179,15 @@ function renderOnlinePanel() {
   const role = onlineSession?.role || "未加入";
   const opponentStatus = getOpponentStatusText();
   const canCopy = Boolean(roomCode);
+  const adapterStatus = getOnlineAdapterStatus();
 
   return `
     <section class="online-panel" aria-label="远程对战配置" data-testid="online-panel">
       <div class="panel-heading">
-        <h2>Mock 联机预览</h2>
-        <span>配置中</span>
+        <h2 data-testid="online-provider-label">${adapterStatus.label}</h2>
+        <span>${adapterStatus.configured ? "可联机" : "配置中"}</span>
       </div>
-      <p class="online-note">当前只模拟远程对战 UI 和状态，不是真实跨设备联机。</p>
+      <p class="online-note">${adapterStatus.note}</p>
       <div class="online-actions">
         <button class="action-button primary" type="button" data-action="create-room" data-testid="create-room-button" ${onlineSession ? "disabled" : ""}>
           创建房间
@@ -476,7 +478,7 @@ function getStatusText(availableBoards) {
     if (!onlineSession || !onlineRoom) {
       return {
         title: "远程对战配置中",
-        detail: "创建或加入 Mock 房间后才能落子。",
+        detail: "创建或加入房间后才能落子；未配置 Supabase 时会使用 Mock 预览。",
       };
     }
 
@@ -545,15 +547,15 @@ function getConstraintText(availableBoards, releasedTarget = getReleasedTarget()
 
   if (gameMode === MODES.ONLINE) {
     if (!onlineSession || !onlineRoom) {
-      return "Mock 远程模式：尚未加入房间";
+      return "远程模式：尚未加入房间";
     }
 
     if (onlineRoom.status === ROOM_STATUS.WAITING) {
-      return "Mock 远程模式：等待对手加入";
+      return "远程模式：等待对手加入";
     }
 
     if (state.currentPlayer !== onlineSession.role) {
-      return `Mock 远程模式：等待 ${state.currentPlayer} 落子`;
+      return `远程模式：等待 ${state.currentPlayer} 落子`;
     }
   }
 
@@ -590,7 +592,7 @@ app.addEventListener("click", async (event) => {
 
   if (action === "restart") {
     if (gameMode === MODES.ONLINE && onlineSession) {
-      showFeedback("Mock 联机预览暂不支持同步重开。");
+      showFeedback("远程模式暂不支持同步重开。");
       return;
     }
 
@@ -612,7 +614,7 @@ app.addEventListener("click", async (event) => {
 
   if (action === "reset-score") {
     if (gameMode === MODES.ONLINE && onlineSession) {
-      showFeedback("Mock 房间分数只在房间内临时记录。");
+      showFeedback("远程房间分数只在房间内临时记录。");
       return;
     }
 
@@ -744,34 +746,44 @@ function resetRound() {
 }
 
 async function handleCreateRoom() {
-  onlineSyncStatus = ONLINE_SYNC_STATUS.SYNCING;
+  onlineSyncStatus = getSyncingStatus();
   render();
 
   const result = await createOnlineRoom();
+  if (!result.ok) {
+    onlineSyncStatus = getDisconnectedStatus();
+    showFeedback(result.error || "创建远程房间失败。");
+    return;
+  }
+
   onlineSession = result.session;
   onlineRoom = result.room;
   onlineRoomCodeInput = result.room.code;
   state = result.room.gameState;
   resetSnapshots();
   subscribeToCurrentRoom();
-  onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
+  onlineSyncStatus = getConnectedStatus();
   render();
 }
 
 async function handleJoinRoom() {
   const roomCode = normalizeRoomCode(onlineRoomCodeInput);
   if (!roomCode) {
-    showFeedback("请输入 Mock 房间码。");
+    showFeedback("请输入房间码。");
     return;
   }
 
-  onlineSyncStatus = ONLINE_SYNC_STATUS.SYNCING;
+  onlineSyncStatus = getSyncingStatus();
   render();
 
   const result = await joinOnlineRoom(roomCode);
   if (!result.ok) {
-    onlineSyncStatus = ONLINE_SYNC_STATUS.DISCONNECTED;
-    showFeedback(result.error || "加入 Mock 房间失败。");
+    onlineSyncStatus = getDisconnectedStatus();
+    if (result.room) {
+      onlineRoom = result.room;
+      state = result.room.gameState;
+    }
+    showFeedback(result.error || "加入远程房间失败。");
     return;
   }
 
@@ -780,7 +792,7 @@ async function handleJoinRoom() {
   state = result.room.gameState;
   resetSnapshots();
   subscribeToCurrentRoom();
-  onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
+  onlineSyncStatus = getConnectedStatus();
   render();
 }
 
@@ -811,21 +823,21 @@ async function commitOnlineState(nextState) {
     return;
   }
 
-  onlineSyncStatus = ONLINE_SYNC_STATUS.SYNCING;
+  onlineSyncStatus = getSyncingStatus();
   render();
 
   const result = await updateRoomState(onlineRoom.code, nextState, onlineRoom.version);
   if (!result.ok) {
     onlineRoom = result.room || onlineRoom;
     state = onlineRoom.gameState;
-    onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
-    showFeedback("Mock 状态版本已变化，请按最新棋局继续。");
+    onlineSyncStatus = getConnectedStatus();
+    showFeedback("状态已同步，请重试。");
     return;
   }
 
   onlineRoom = result.room;
   state = result.room.gameState;
-  onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
+  onlineSyncStatus = getConnectedStatus();
   render();
 }
 
@@ -835,9 +847,16 @@ function subscribeToCurrentRoom() {
   }
 
   subscribeToRoom(onlineSession.roomCode, (room) => {
+    if (room.error) {
+      onlineSyncStatus = getDisconnectedStatus();
+      showFeedback(room.error);
+      render();
+      return;
+    }
+
     onlineRoom = room;
     state = room.gameState;
-    onlineSyncStatus = ONLINE_SYNC_STATUS.CONNECTED;
+    onlineSyncStatus = getConnectedStatus();
     isHistoryExpanded = isHistoryExpanded && state.moveHistory.length > 9;
     render();
   });
@@ -849,7 +868,7 @@ async function resetOnlineSession() {
   onlineRoom = null;
   onlineSession = null;
   onlineRoomCodeInput = "";
-  onlineSyncStatus = ONLINE_SYNC_STATUS.DISCONNECTED;
+  onlineSyncStatus = getDisconnectedStatus();
 }
 
 function scheduleComputerMove() {
@@ -1008,11 +1027,11 @@ function getOnlineCellDisabledReason() {
   }
 
   if (!onlineSession || !onlineRoom) {
-    return "请先创建或加入 Mock 房间。";
+    return "请先创建或加入房间。";
   }
 
-  if (onlineSyncStatus === ONLINE_SYNC_STATUS.SYNCING) {
-    return "Mock 同步中，请稍候。";
+  if (isOnlineSyncing()) {
+    return "远程同步中，请稍候。";
   }
 
   if (onlineRoom.status === ROOM_STATUS.WAITING) {
@@ -1020,7 +1039,7 @@ function getOnlineCellDisabledReason() {
   }
 
   if (onlineRoom.status === ROOM_STATUS.CLOSED) {
-    return "这个 Mock 房间已关闭。";
+    return "这个远程房间已关闭。";
   }
 
   if (state.currentPlayer !== onlineSession.role) {
@@ -1050,6 +1069,36 @@ function getVisibleScore() {
   }
 
   return score;
+}
+
+function getConnectedStatus() {
+  return getOnlineAdapterStatus().provider === "supabase"
+    ? ONLINE_SYNC_STATUS.SUPABASE_CONNECTED
+    : ONLINE_SYNC_STATUS.CONNECTED;
+}
+
+function getSyncingStatus() {
+  return getOnlineAdapterStatus().provider === "supabase"
+    ? ONLINE_SYNC_STATUS.SUPABASE_SYNCING
+    : ONLINE_SYNC_STATUS.SYNCING;
+}
+
+function getDisconnectedStatus() {
+  const adapterStatus = getOnlineAdapterStatus();
+  if (adapterStatus.label === "Supabase 未配置") {
+    return ONLINE_SYNC_STATUS.SUPABASE_UNCONFIGURED;
+  }
+
+  return adapterStatus.provider === "supabase"
+    ? ONLINE_SYNC_STATUS.SUPABASE_DISCONNECTED
+    : ONLINE_SYNC_STATUS.DISCONNECTED;
+}
+
+function isOnlineSyncing() {
+  return (
+    onlineSyncStatus === ONLINE_SYNC_STATUS.SYNCING ||
+    onlineSyncStatus === ONLINE_SYNC_STATUS.SUPABASE_SYNCING
+  );
 }
 
 function showFeedback(message) {

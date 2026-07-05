@@ -1,203 +1,106 @@
-import {
-  canJoinRoom,
-  createInitialRoomState,
-  createOnlineSession,
-  generateRoomCode,
-  getNextRoomVersion,
-  markRoomJoinedByO,
-  normalizeRoomCode,
-  ONLINE_SYNC_STATUS,
-} from "./room.js";
+import { getOnlineConfig, hasSupabaseConfig } from "./config.js";
+import * as mockAdapter from "./online-mock.js";
+import * as supabaseAdapter from "./online-supabase.js";
+import { ONLINE_SYNC_STATUS } from "./room.js";
 
-// Mock adapter only. This module intentionally does not connect to Supabase.
-// It keeps room data in memory so the UI/state-machine can be built first.
-const mockRooms = new Map();
-const subscribers = new Map();
-
-let currentSession = null;
-let currentSubscription = null;
+let activeAdapter = mockAdapter;
+let activeAdapterName = "mock";
 
 export async function createRoom() {
-  let code = generateRoomCode();
-  while (mockRooms.has(code)) {
-    code = generateRoomCode();
+  try {
+    return await getActiveAdapter().createRoom();
+  } catch (error) {
+    return createAdapterError(error, "创建远程房间失败。");
   }
-
-  const room = createInitialRoomState(code);
-  mockRooms.set(code, room);
-  currentSession = createOnlineSession(code, "X");
-  notifyRoom(code);
-
-  return {
-    room,
-    session: currentSession,
-    role: "X",
-  };
 }
 
 export async function joinRoom(roomCode) {
-  const code = normalizeRoomCode(roomCode);
-  const room = mockRooms.get(code);
-
-  if (!room) {
-    return {
-      ok: false,
-      error: "找不到这个 Mock 房间，请检查房间码。",
-    };
+  try {
+    return await getActiveAdapter().joinRoom(roomCode);
+  } catch (error) {
+    return createAdapterError(error, "加入远程房间失败。");
   }
-
-  if (!canJoinRoom(room)) {
-    return {
-      ok: false,
-      error: "这个 Mock 房间暂时不能加入。",
-    };
-  }
-
-  const nextRoom = markRoomJoinedByO(room);
-  mockRooms.set(code, nextRoom);
-  currentSession = createOnlineSession(code, "O");
-  notifyRoom(code);
-
-  return {
-    ok: true,
-    room: nextRoom,
-    session: currentSession,
-    role: "O",
-  };
 }
 
 export async function leaveRoom() {
-  if (!currentSession) {
-    return { ok: true };
+  try {
+    return await getActiveAdapter().leaveRoom();
+  } catch (error) {
+    return createAdapterError(error, "退出远程房间失败。");
   }
-
-  const room = mockRooms.get(currentSession.roomCode);
-  if (room) {
-    const nextRoom = {
-      ...room,
-      version: getNextRoomVersion(room),
-      players: {
-        ...room.players,
-        [currentSession.role]: {
-          ...room.players[currentSession.role],
-          online: false,
-        },
-      },
-    };
-    mockRooms.set(currentSession.roomCode, nextRoom);
-    notifyRoom(currentSession.roomCode);
-  }
-
-  cleanupOnlineSubscription();
-  currentSession = null;
-
-  return { ok: true };
 }
 
 export function subscribeToRoom(roomCode, callback) {
-  const code = normalizeRoomCode(roomCode);
-  cleanupOnlineSubscription();
-
-  if (!subscribers.has(code)) {
-    subscribers.set(code, new Set());
-  }
-
-  subscribers.get(code).add(callback);
-  currentSubscription = { code, callback };
-
-  const room = mockRooms.get(code);
-  if (room) {
-    queueMicrotask(() => callback(room));
-  }
-
-  return () => {
-    subscribers.get(code)?.delete(callback);
-    if (currentSubscription?.code === code && currentSubscription.callback === callback) {
-      currentSubscription = null;
-    }
-  };
+  return getActiveAdapter().subscribeToRoom(roomCode, callback);
 }
 
 export async function updateRoomState(roomCode, nextState, expectedVersion) {
-  const code = normalizeRoomCode(roomCode);
-  const room = mockRooms.get(code);
-
-  if (!room) {
-    return { ok: false, error: "Mock 房间不存在。" };
+  try {
+    return await getActiveAdapter().updateRoomState(roomCode, nextState, expectedVersion);
+  } catch (error) {
+    return createAdapterError(error, "同步远程房间失败。");
   }
-
-  if (room.version !== expectedVersion) {
-    return {
-      ok: false,
-      error: "Mock version conflict",
-      room,
-    };
-  }
-
-  const nextRoom = {
-    ...room,
-    status: nextState.winner || nextState.draw ? "finished" : room.status,
-    version: getNextRoomVersion(room),
-    moveNumber: room.moveNumber + 1,
-    gameState: nextState,
-    score: getUpdatedRoomScore(room.score, nextState),
-  };
-
-  mockRooms.set(code, nextRoom);
-  notifyRoom(code);
-
-  return {
-    ok: true,
-    room: nextRoom,
-  };
 }
 
 export function cleanupOnlineSubscription() {
-  if (!currentSubscription) {
-    return;
-  }
-
-  subscribers
-    .get(currentSubscription.code)
-    ?.delete(currentSubscription.callback);
-  currentSubscription = null;
+  return getActiveAdapter().cleanupOnlineSubscription();
 }
 
 export function getOnlinePlayerRole() {
-  return currentSession?.role ?? null;
+  return getActiveAdapter().getOnlinePlayerRole();
 }
 
-export function getMockRoom(roomCode) {
-  return mockRooms.get(normalizeRoomCode(roomCode)) ?? null;
+export function getOnlineAdapterStatus() {
+  const config = getOnlineConfig();
+
+  if (config.ONLINE_PROVIDER === "supabase" && !hasSupabaseConfig(config)) {
+    return {
+      provider: "mock",
+      label: "Supabase 未配置",
+      note: "缺少 Supabase 公开配置，当前回退到 Mock 联机预览。",
+      configured: false,
+    };
+  }
+
+  if (activeAdapterName === "supabase") {
+    return activeAdapter.getAdapterStatus();
+  }
+
+  return mockAdapter.getAdapterStatus();
 }
 
 export function resetMockOnlineState() {
-  mockRooms.clear();
-  subscribers.clear();
-  currentSession = null;
-  currentSubscription = null;
+  mockAdapter.resetMockOnlineState();
+  activeAdapter = mockAdapter;
+  activeAdapterName = "mock";
 }
 
-function notifyRoom(roomCode) {
-  const room = mockRooms.get(normalizeRoomCode(roomCode));
-  if (!room) {
-    return;
-  }
-
-  for (const callback of subscribers.get(room.code) ?? []) {
-    callback(room);
-  }
+export function getMockRoom(roomCode) {
+  return mockAdapter.getMockRoom(roomCode);
 }
 
-function getUpdatedRoomScore(score, nextState) {
-  if (!nextState.winner && !nextState.draw) {
-    return score;
+function getActiveAdapter() {
+  const config = getOnlineConfig();
+
+  if (!hasSupabaseConfig(config)) {
+    activeAdapter = mockAdapter;
+    activeAdapterName = "mock";
+    return activeAdapter;
   }
 
-  const result = nextState.winner || "draw";
+  if (activeAdapterName === "supabase") {
+    return activeAdapter;
+  }
+
+  activeAdapter = supabaseAdapter;
+  activeAdapterName = "supabase";
+  return activeAdapter;
+}
+
+function createAdapterError(error, fallback) {
   return {
-    ...score,
-    [result]: (score[result] ?? 0) + 1,
+    ok: false,
+    error: `${fallback} ${error?.message || ""}`.trim(),
   };
 }
 

@@ -12,6 +12,10 @@ export const ONLINE_SYNC_STATUS = {
   CONNECTED: "Mock connected",
   SYNCING: "Mock syncing",
   DISCONNECTED: "Mock disconnected",
+  SUPABASE_CONNECTED: "Supabase connected",
+  SUPABASE_SYNCING: "Supabase syncing",
+  SUPABASE_DISCONNECTED: "Supabase disconnected",
+  SUPABASE_UNCONFIGURED: "Supabase unconfigured",
 };
 
 export function generateRoomCode() {
@@ -58,11 +62,15 @@ export function getNextRoomVersion(room) {
   return (room?.version ?? 0) + 1;
 }
 
-export function createOnlineSession(roomCode, role) {
+export function createOnlineSession(
+  roomCode,
+  role,
+  syncStatus = ONLINE_SYNC_STATUS.CONNECTED,
+) {
   return {
     roomCode: normalizeRoomCode(roomCode),
     role,
-    syncStatus: ONLINE_SYNC_STATUS.CONNECTED,
+    syncStatus,
   };
 }
 

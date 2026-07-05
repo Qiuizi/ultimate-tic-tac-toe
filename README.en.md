@@ -23,7 +23,7 @@ Unlike regular tic-tac-toe, this game uses 9 small boards. The cell you choose d
 - Local two-player mode.
 - Computer mode: player is `X`, computer is `O`.
 - Normal and hard AI options.
-- Online mode entry and a mock networking preview panel for the v1.3.0 online architecture.
+- Online room-code MVP: mock preview by default, cross-device sync when Supabase is configured.
 - In-page rules modal for new players.
 - Clear hints for whose turn it is, which board is forced, and when free choice is allowed.
 - Highlighted playable boards, small-board wins, and big-board wins.
@@ -36,14 +36,39 @@ Unlike regular tic-tac-toe, this game uses 9 small boards. The cell you choose d
 
 ## Online Mode Status
 
-v1.3.0 has started the online-play architecture work. The current stage includes:
+v1.3.0 has started the online-play architecture work. The current code includes:
 
 - an online mode entry,
 - create room / join room / leave room UI,
 - 6-character room codes, room state, and a local online session state,
-- `src/online.js`, a mock adapter that uses in-memory rooms to simulate room creation, joining, subscriptions, and version conflicts.
+- a default mock adapter that uses in-memory rooms to simulate room creation, joining, subscriptions, and version conflicts,
+- a Supabase Realtime adapter that stores authoritative room state in a `rooms` table and syncs boards with Postgres Changes.
 
-This is not real cross-device online play yet, and it does not connect to Supabase. A later phase will replace the mock adapter with Supabase Realtime plus a `rooms` table as the shared room-state store.
+Without Supabase configuration, online mode keeps using the mock preview. It does not access the network and does not affect local two-player or computer modes.
+
+### Supabase Setup
+
+Real cross-device online play requires a Supabase project:
+
+1. Create a project in the Supabase Dashboard.
+2. Open SQL Editor and run [docs/supabase.sql](./docs/supabase.sql).
+3. In Database Publications / Realtime settings, confirm `public.rooms` is enabled for Postgres Changes.
+4. Configure the public frontend values before building:
+
+```bash
+ONLINE_PROVIDER=supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-public-browser-key
+```
+
+This is a static site without Vite / Webpack. `npm run build` writes those public values into `dist/src/config.js`. GitHub Pages can inject them from GitHub Actions variables or secrets in the workflow. These values are included in the browser bundle, so only use a publishable / anon public key. Never put a privileged server key or secret key in frontend config.
+
+MVP boundaries:
+
+- Supports creating rooms, joining rooms, copying room codes, turn-limited moves, board sync, game-end sync, and leaving rooms.
+- No accounts, friends, matchmaking, chat, leaderboard, spectators, or complete reconnect flow.
+- No server-side referee; frontend rules and database version checks do not provide strong anti-cheat protection.
+- Room restore after page refresh is not implemented yet. Refreshing requires creating or joining a room again.
 
 ## AI Strategy
 
@@ -107,6 +132,7 @@ node --check src/game.js
 node --check src/app.js
 node --check src/room.js
 node --check src/online.js
+node --check src/online-supabase.js
 ```
 
 ## Build
@@ -115,7 +141,7 @@ node --check src/online.js
 npm run build
 ```
 
-The static output is written to `dist/`.
+The static output is written to `dist/`. If `ONLINE_PROVIDER`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY` are set, the build script writes public Supabase config. Without them, online mode uses the mock adapter.
 
 ## Project Structure
 
@@ -123,13 +149,18 @@ The static output is written to `dist/`.
 .
 ├── index.html
 ├── package.json
+├── docs/
+│   └── supabase.sql # Supabase rooms table and MVP RLS policies
 ├── scripts/
 │   ├── build.mjs
 │   └── dev-server.mjs
 ├── src/
 │   ├── app.js        # UI rendering, interaction, mode, history, undo, and score state
+│   ├── config.js     # Default empty online config, build can inject public Supabase config
 │   ├── game.js       # Ultimate rules, win checks, and AI
-│   ├── online.js     # Mock online adapter, later replaceable with Supabase Realtime
+│   ├── online.js     # Online adapter selector: Supabase when configured, mock otherwise
+│   ├── online-mock.js
+│   ├── online-supabase.js
 │   ├── room.js       # Room code, room state, and online session utilities
 │   └── styles.css
 ├── tests/
@@ -142,6 +173,6 @@ The static output is written to `dist/`.
 ## Future Improvements
 
 - Tune the hard AI evaluation so it makes fewer bad board-sending decisions.
-- Connect Supabase Realtime and a `rooms` table for real cross-device online play.
+- Add page-refresh restore and clearer disconnect states for online mode.
 - Move deeper AI search into a Web Worker if the search depth is increased.
 - Add a fuller review or replay view on top of the complete move history.
