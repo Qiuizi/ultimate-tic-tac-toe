@@ -38,7 +38,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          ONLINE_PROVIDER: supabase
+          ONLINE_PROVIDER: ${{ vars.ONLINE_PROVIDER }}
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
 
