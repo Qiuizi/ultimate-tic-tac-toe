@@ -43,16 +43,30 @@ jobs:
           if [ -n "$SUPABASE_URL" ]; then echo "hasSupabaseUrl=true"; else echo "hasSupabaseUrl=false"; fi
           if [ -n "$SUPABASE_PUBLISHABLE_KEY" ]; then echo "hasPublishableKey=true"; else echo "hasPublishableKey=false"; fi
         env:
-          ONLINE_PROVIDER: ${{ vars.ONLINE_PROVIDER }}
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          ONLINE_PROVIDER: ${{ vars.ONLINE_PROVIDER || secrets.ONLINE_PROVIDER || 'supabase' }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Build
         run: npm run build
         env:
-          ONLINE_PROVIDER: ${{ vars.ONLINE_PROVIDER }}
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          ONLINE_PROVIDER: ${{ vars.ONLINE_PROVIDER || secrets.ONLINE_PROVIDER || 'supabase' }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Verify online build config
+        run: |
+          node --input-type=module <<'NODE'
+          import { getOnlineConfig, hasSupabaseConfig } from './dist/src/config.js';
+          const config = getOnlineConfig();
+          console.log(`onlineProvider=${config.ONLINE_PROVIDER || '<empty>'}`);
+          console.log(`hasSupabaseUrl=${Boolean(config.SUPABASE_URL)}`);
+          console.log(`hasPublishableKey=${Boolean(config.SUPABASE_PUBLISHABLE_KEY)}`);
+          if (!hasSupabaseConfig(config)) {
+            console.error('Supabase config was not injected into dist/src/config.js');
+            process.exit(1);
+          }
+          NODE
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
