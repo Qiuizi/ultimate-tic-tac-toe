@@ -58,11 +58,15 @@ function normalizeValue(value) {
 }
 
 function getPublicConfig(env) {
+  const supabaseUrl = env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const supabasePublishableKey =
+    env.SUPABASE_PUBLISHABLE_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+
   return {
-    ONLINE_PROVIDER: env.ONLINE_PROVIDER || "",
-    SUPABASE_URL: env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || "",
-    SUPABASE_PUBLISHABLE_KEY:
-      env.SUPABASE_PUBLISHABLE_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "",
+    ONLINE_PROVIDER:
+      env.ONLINE_PROVIDER || (supabaseUrl && supabasePublishableKey ? "supabase" : ""),
+    SUPABASE_URL: supabaseUrl,
+    SUPABASE_PUBLISHABLE_KEY: supabasePublishableKey,
   };
 }
 

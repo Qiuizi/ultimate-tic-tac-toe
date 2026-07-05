@@ -18,6 +18,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
 
     steps:
       - name: Checkout
@@ -34,6 +36,16 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Check online build config
+        run: |
+          echo "onlineProvider=${ONLINE_PROVIDER:-<empty>}"
+          if [ -n "$SUPABASE_URL" ]; then echo "hasSupabaseUrl=true"; else echo "hasSupabaseUrl=false"; fi
+          if [ -n "$SUPABASE_PUBLISHABLE_KEY" ]; then echo "hasPublishableKey=true"; else echo "hasPublishableKey=false"; fi
+        env:
+          ONLINE_PROVIDER: ${{ vars.ONLINE_PROVIDER }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Build
         run: npm run build
