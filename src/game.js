@@ -72,7 +72,7 @@ export function isFull(cells) {
 }
 
 export function isBoardPlayable(board) {
-  return !board.winner && !board.full;
+  return Boolean(board) && !board.full;
 }
 
 export function getAvailableBoards(state) {
@@ -130,9 +130,12 @@ export function applyMove(state, boardIndex, cellIndex) {
 
   board.cells[cellIndex] = player;
 
-  const smallResult = getWinner(board.cells);
-  board.winner = smallResult.winner;
-  board.winningLine = smallResult.line;
+  if (!boardWinnerBefore) {
+    const smallResult = getWinner(board.cells);
+    board.winner = smallResult.winner;
+    board.winningLine = smallResult.line;
+  }
+
   board.full = isFull(board.cells);
 
   const macroCells = nextState.boards.map((smallBoard) => smallBoard.winner);
@@ -140,7 +143,7 @@ export function applyMove(state, boardIndex, cellIndex) {
   nextState.winner = macroResult.winner;
   nextState.winningLine = macroResult.line;
   nextState.draw =
-    !nextState.winner && nextState.boards.every((smallBoard) => !isBoardPlayable(smallBoard));
+    !nextState.winner && nextState.boards.every((smallBoard) => smallBoard.full);
 
   nextState.moveHistory.push({
     step: nextState.moveHistory.length + 1,
@@ -415,6 +418,10 @@ export function shouldIgnoreScheduledComputerMove(state, scheduledMoveCount) {
 function findMoveByOutcome(state, legalMoves, player, outcome) {
   return legalMoves.find((move) => {
     const board = state.boards[move.boardIndex];
+    if (board.winner) {
+      return false;
+    }
+
     const cells = [...board.cells];
     cells[move.cellIndex] = player;
 
@@ -509,6 +516,10 @@ function scoreSentBoard(state, targetBoardIndex, computer, human) {
 
   if (!targetBoard || !isBoardPlayable(targetBoard)) {
     return -24;
+  }
+
+  if (targetBoard.winner) {
+    return targetBoard.winner === computer ? 8 : -10;
   }
 
   const humanCanWinTarget = findWinningCell(targetBoard.cells, human) !== null;

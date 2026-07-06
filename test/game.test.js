@@ -64,14 +64,15 @@ test("move is rejected when the cell is already occupied", () => {
   assert.equal(applyMove(state, 4, 0), state);
 });
 
-test("player can choose freely when the target board is already won", () => {
+test("player must enter a won target board if it still has empty cells", () => {
   const state = createInitialState();
   state.boards[0].winner = PLAYERS.X;
+  state.boards[0].winningLine = [0, 1, 2];
 
   const next = applyMove(state, 4, 0);
 
-  assert.equal(next.forcedBoard, null);
-  assert.deepEqual(getAvailableBoards(next), [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(next.forcedBoard, 0);
+  assert.deepEqual(getAvailableBoards(next), [0]);
 });
 
 test("small board win is recorded", () => {
@@ -366,6 +367,221 @@ test("mock online adapter rejects stale room state updates", async () => {
   assert.equal(firstUpdate.ok, true);
   assert.equal(staleUpdate.ok, false);
   assert.equal(staleUpdate.error, "Mock version conflict");
+});
+
+test("claimed small board still accepts moves while it has empty cells", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.forcedBoard = 4;
+  state.boards[4].cells = [
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.X,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+  ];
+  state.boards[4].winner = PLAYERS.X;
+  state.boards[4].winningLine = [0, 1, 2];
+
+  assert.equal(canPlayMove(state, 4, 3), true);
+
+  const next = applyMove(state, 4, 3);
+  assert.equal(next.boards[4].cells[3], PLAYERS.O);
+  assert.equal(next.boards[4].winner, PLAYERS.X);
+  assert.deepEqual(next.boards[4].winningLine, [0, 1, 2]);
+  assert.equal(next.moveHistory.at(-1).wonSmallBoard, false);
+});
+
+test("later moves in a claimed board do not change its owner", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.forcedBoard = 4;
+  state.boards[4].cells = [
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.O,
+    PLAYERS.O,
+    null,
+    null,
+    null,
+    null,
+  ];
+  state.boards[4].winner = PLAYERS.X;
+  state.boards[4].winningLine = [0, 1, 2];
+
+  const next = applyMove(state, 4, 5);
+
+  assert.equal(next.boards[4].winner, PLAYERS.X);
+  assert.deepEqual(next.boards[4].winningLine, [0, 1, 2]);
+});
+
+test("forced board can be a claimed but not full small board", () => {
+  const state = applyMove(createInitialState(), 4, 0);
+  state.boards[0].cells = [
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.X,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+  ];
+  state.boards[0].winner = PLAYERS.X;
+  state.boards[0].winningLine = [0, 1, 2];
+
+  assert.deepEqual(getAvailableBoards(state), [0]);
+  assert.equal(canPlayMove(state, 0, 3), true);
+  assert.equal(canPlayMove(state, 1, 0), false);
+});
+
+test("full forced board releases the player to any non-full board", () => {
+  const state = applyMove(createInitialState(), 4, 0);
+  state.boards[0].cells = Array(9).fill(PLAYERS.X);
+  state.boards[0].winner = PLAYERS.X;
+  state.boards[0].winningLine = [0, 1, 2];
+  state.boards[0].full = true;
+  state.boards[1].winner = PLAYERS.O;
+  state.boards[1].winningLine = [0, 1, 2];
+
+  assert.equal(state.forcedBoard, 0);
+  assert.deepEqual(getAvailableBoards(state), [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(canPlayMove(state, 1, 3), true);
+  assert.equal(canPlayMove(state, 0, 0), false);
+});
+
+test("free choice includes claimed boards that are not full", () => {
+  const state = createInitialState();
+  state.boards[2].winner = PLAYERS.X;
+  state.boards[2].winningLine = [0, 1, 2];
+
+  assert.equal(getAvailableBoards(state).includes(2), true);
+  assert.equal(canPlayMove(state, 2, 0), true);
+});
+
+test("macro winner still uses small-board ownership only", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.forcedBoard = 2;
+  state.boards[0].winner = PLAYERS.O;
+  state.boards[1].winner = PLAYERS.O;
+  state.boards[2].winner = PLAYERS.X;
+  state.boards[2].winningLine = [3, 4, 5];
+  state.boards[2].cells = [
+    PLAYERS.O,
+    PLAYERS.O,
+    null,
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.X,
+    null,
+    null,
+    null,
+  ];
+
+  const next = applyMove(state, 2, 2);
+
+  assert.equal(next.boards[2].winner, PLAYERS.X);
+  assert.equal(next.winner, null);
+});
+
+test("draw is reached only when every small board is full without a macro winner", () => {
+  const state = createInitialState(PLAYERS.X);
+  const owners = [
+    PLAYERS.X,
+    PLAYERS.O,
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.O,
+    PLAYERS.O,
+    PLAYERS.O,
+    PLAYERS.X,
+    null,
+  ];
+
+  state.boards.forEach((board, index) => {
+    board.cells = Array(9).fill(index % 2 === 0 ? PLAYERS.X : PLAYERS.O);
+    board.winner = owners[index];
+    board.full = true;
+  });
+  state.boards[8].cells[8] = null;
+  state.boards[8].full = false;
+  state.forcedBoard = 8;
+
+  const next = applyMove(state, 8, 8);
+
+  assert.equal(next.winner, null);
+  assert.equal(next.draw, true);
+});
+
+test("legal moves include claimed boards that are not full", () => {
+  const state = createInitialState();
+  state.boards[4].winner = PLAYERS.X;
+  state.boards[4].winningLine = [0, 1, 2];
+
+  assert.equal(
+    getLegalMoves(state).some((move) => move.boardIndex === 4),
+    true,
+  );
+});
+
+test("undo restores a later move inside a claimed board", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.forcedBoard = 4;
+  state.boards[4].cells = [
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.X,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+  ];
+  state.boards[4].winner = PLAYERS.X;
+  state.boards[4].winningLine = [0, 1, 2];
+  const snapshot = createGameSnapshot(state);
+
+  const next = applyMove(state, 4, 3);
+  const restored = restoreGameSnapshot(snapshot);
+
+  assert.equal(next.boards[4].cells[3], PLAYERS.O);
+  assert.equal(restored.boards[4].cells[3], null);
+  assert.equal(restored.boards[4].winner, PLAYERS.X);
+});
+
+test("mock remote room updates use new claimed-board move legality", async () => {
+  resetMockOnlineState();
+
+  const created = await createRoom();
+  const joined = await joinRoom(created.room.code);
+  const roomState = joined.room.gameState;
+  roomState.currentPlayer = PLAYERS.O;
+  roomState.forcedBoard = 4;
+  roomState.boards[4].cells = [
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.X,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+  ];
+  roomState.boards[4].winner = PLAYERS.X;
+  roomState.boards[4].winningLine = [0, 1, 2];
+
+  const nextState = applyMove(roomState, 4, 3);
+  const update = await updateRoomState(joined.room.code, nextState, joined.room.version);
+
+  assert.equal(update.ok, true);
+  assert.equal(update.room.gameState.boards[4].cells[3], PLAYERS.O);
+  assert.equal(update.room.gameState.boards[4].winner, PLAYERS.X);
 });
 
 test("mock online leave clears the local player role", async () => {

@@ -13,10 +13,11 @@ Unlike regular tic-tac-toe, this game uses 9 small boards. The cell you choose d
 - The full board is made of 9 small tic-tac-toe boards.
 - Each small board is also a 3 x 3 grid.
 - After you play a cell, your opponent must play in the matching small board.
-- If that target board is already won or full, your opponent can choose any available board.
+- If that target board is full, your opponent can choose any non-full small board.
 - Winning a small board claims that spot on the big board.
+- A claimed small board can still be played in while it has empty cells. Its owner does not change, but later moves there still decide the next target board.
 - The first player to claim three small boards in a row wins the game.
-- If every playable board is finished and nobody has a big-board line, the game is a draw.
+- If every small board is full and nobody has a big-board line, the game is a draw.
 
 ## Features
 

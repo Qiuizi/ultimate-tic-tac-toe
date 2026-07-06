@@ -45,6 +45,23 @@ test("two-player undo removes the latest move", async ({ page }) => {
   await expect(page.getByTestId("move-history")).toContainText("第 1 步：X");
 });
 
+test("claimed small boards remain playable until full", async ({ page }) => {
+  await playCell(page, 4, 0);
+  await playCell(page, 0, 4);
+  await playCell(page, 4, 1);
+  await playCell(page, 1, 4);
+  await playCell(page, 4, 2);
+
+  await expect(page.getByTestId("small-board-4")).toHaveClass(/owner-x/);
+  await playCell(page, 2, 4);
+  await expect(page.getByTestId("cell-4-3")).toHaveAttribute("aria-disabled", "false");
+
+  await playCell(page, 4, 3);
+
+  await expect(page.getByTestId("cell-4-3")).toContainText("X");
+  await expect(page.getByTestId("small-board-4")).toHaveClass(/owner-x/);
+});
+
 test("restart clears the board and move history", async ({ page }) => {
   await playCell(page, 4, 0);
   await playCell(page, 0, 4);

@@ -106,7 +106,7 @@ function render() {
       <footer class="info-strip" aria-live="polite">
         <span>步数 ${state.moveHistory.length}</span>
         <span>${getConstraintText(availableBoards, releasedTarget)}</span>
-        <span>已占领 ${getCapturedCount()} / 9 个小棋盘</span>
+        <span>已归属 ${getCapturedCount()} / 9 个小棋盘</span>
       </footer>
       ${isRulesOpen ? renderRulesDialog() : ""}
       ${feedbackMessage ? `<div class="feedback-toast" role="status">${feedbackMessage}</div>` : ""}
@@ -280,7 +280,7 @@ function renderReleasedTargetNotice(releasedTarget) {
 
   return `
     <section class="notice-card" aria-live="polite">
-      <strong>目标区域已结束</strong>
+      <strong>目标区域已满</strong>
       <span>上一手指向${BOARD_NAMES[releasedTarget.index]}区域，但该区域${releasedTarget.reason}，所以本回合可自由选择。</span>
     </section>
   `;
@@ -332,7 +332,7 @@ function renderRuleNotes() {
     <section class="rule-notes" aria-label="规则提示">
       <h2>当前规则</h2>
       <p>你在小棋盘中点击的位置，会决定对手下一步必须进入的大区域。</p>
-      <p>如果目标区域已经结束，对手可以自由选择任意未结束区域。</p>
+      <p>小棋盘被赢下后仍可继续落子；只有目标区域已满时，对手才可以自由选择。</p>
     </section>
   `;
 }
@@ -413,8 +413,8 @@ function renderRulesDialog() {
         <ul class="rules-list">
           <li>棋盘由 9 个小棋盘组成，每个小棋盘都是 3 × 3。</li>
           <li>玩家在某个格子落子后，对手下一步必须去对应位置的小棋盘。</li>
-          <li>如果目标小棋盘已经结束或下满，对手可以自由选择其他可用小棋盘。</li>
-          <li>赢下一个小棋盘后，会占据大棋盘上对应的位置。</li>
+          <li>如果目标小棋盘已经下满，对手可以自由选择其他未满小棋盘。</li>
+          <li>赢下一个小棋盘后，会占据大棋盘上对应的位置；该小棋盘仍可继续落子，但归属不会改变。</li>
           <li>谁先在大棋盘上占据三个连成一线的小棋盘，谁获胜。</li>
         </ul>
         <button class="action-button primary" type="button" data-action="close-rules" data-testid="rules-confirm-button">知道了</button>
@@ -497,7 +497,7 @@ function getStatusText(availableBoards) {
   if (state.draw) {
     return {
       title: "平局",
-      detail: "所有可用小棋盘均已结束",
+      detail: "所有小棋盘均已下满",
     };
   }
 
@@ -535,7 +535,7 @@ function getStatusText(availableBoards) {
       detail:
         availableBoards.length === 1 && state.forcedBoard !== null
           ? `你必须下在${BOARD_NAMES[availableBoards[0]]}区域`
-          : "你可以选择任意未结束区域",
+          : "你可以选择任意未满区域",
     };
   }
 
@@ -545,7 +545,7 @@ function getStatusText(availableBoards) {
       detail:
         availableBoards.length === 1 && state.forcedBoard !== null
           ? `你必须下在${BOARD_NAMES[availableBoards[0]]}区域`
-          : "你可以选择任意未结束区域",
+          : "你可以选择任意未满区域",
     };
   }
 
@@ -560,13 +560,13 @@ function getStatusText(availableBoards) {
   if (releasedTarget) {
     return {
       title: `${state.currentPlayer} 回合`,
-      detail: `${BOARD_NAMES[releasedTarget.index]}区域${releasedTarget.reason}，可选择任意未结束区域`,
+      detail: `${BOARD_NAMES[releasedTarget.index]}区域${releasedTarget.reason}，可选择任意未满区域`,
     };
   }
 
   return {
     title: `${state.currentPlayer} 回合`,
-    detail: "可选择任意未结束区域",
+    detail: "可选择任意未满区域",
   };
 }
 
@@ -601,7 +601,7 @@ function getConstraintText(availableBoards, releasedTarget = getReleasedTarget()
     return `原目标：${BOARD_NAMES[releasedTarget.index]}${releasedTarget.reason}`;
   }
 
-  return "自由选择：目标区域已结束或首步";
+  return "自由选择：目标区域已满或首步";
 }
 
 app.addEventListener("click", async (event) => {
@@ -1026,10 +1026,6 @@ function getCellDisabledReason(boardIndex, cellIndex) {
   }
 
   const board = state.boards[boardIndex];
-  if (!board || board.winner) {
-    return "这个小棋盘已经被占领。";
-  }
-
   if (board.full) {
     return "这个小棋盘已经下满。";
   }
@@ -1040,7 +1036,7 @@ function getCellDisabledReason(boardIndex, cellIndex) {
 
   if (!getAvailableBoards(state).includes(boardIndex)) {
     return state.forcedBoard === null
-      ? "请选择一个未结束的小棋盘。"
+      ? "请选择一个未满的小棋盘。"
       : `当前必须下在${BOARD_NAMES[state.forcedBoard]}区域。`;
   }
 
@@ -1150,7 +1146,7 @@ function showFeedback(message) {
 }
 
 function getCapturedCount() {
-  return state.boards.filter((board) => board.winner || board.full).length;
+  return state.boards.filter((board) => board.winner).length;
 }
 
 function getReleasedTarget() {
@@ -1160,13 +1156,6 @@ function getReleasedTarget() {
 
   const lastMove = state.moveHistory.at(-1);
   const targetBoard = state.boards[lastMove.cellIndex];
-
-  if (targetBoard.winner) {
-    return {
-      index: lastMove.cellIndex,
-      reason: `已被 ${targetBoard.winner} 占领`,
-    };
-  }
 
   if (targetBoard.full) {
     return {
