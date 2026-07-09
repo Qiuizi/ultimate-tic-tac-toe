@@ -1,0 +1,130 @@
+<view class="page">
+  <view class="status-panel">
+    <view class="status-title">{{statusTitle}}</view>
+    <view class="status-detail">{{statusDetail}}</view>
+    <view wx:if="{{feedback}}" class="feedback">{{feedback}}</view>
+  </view>
+
+  <view class="score-panel">
+    <view class="score-item">
+      <text class="score-label">X</text>
+      <text class="score-value">{{scores.X}}</text>
+    </view>
+    <view class="score-item">
+      <text class="score-label">O</text>
+      <text class="score-value">{{scores.O}}</text>
+    </view>
+    <view class="score-item">
+      <text class="score-label">平局</text>
+      <text class="score-value">{{scores.draw}}</text>
+    </view>
+  </view>
+
+  <view class="control-panel">
+    <view class="control-label">游戏模式</view>
+    <view class="segmented">
+      <button
+        wx:for="{{modeOptions}}"
+        wx:key="value"
+        class="segment-button {{gameMode === item.value ? 'is-active' : ''}}"
+        data-mode="{{item.value}}"
+        bindtap="handleModeTap"
+      >
+        {{item.label}}
+      </button>
+    </view>
+  </view>
+
+  <view wx:if="{{gameMode === 'computer'}}" class="control-panel">
+    <view class="control-label">AI 难度</view>
+    <view class="segmented difficulty">
+      <button
+        wx:for="{{difficultyOptions}}"
+        wx:key="value"
+        class="segment-button {{aiDifficulty === item.value ? 'is-active' : ''}}"
+        data-difficulty="{{item.value}}"
+        bindtap="handleDifficultyTap"
+      >
+        {{item.label}}
+      </button>
+    </view>
+  </view>
+
+  <view class="board-wrap">
+    <view class="macro-board">
+      <view
+        wx:for="{{boards}}"
+        wx:for-item="board"
+        wx:key="boardIndex"
+        class="{{board.classes}}"
+      >
+        <view class="board-meta">
+          <text>{{board.name}}</text>
+          <text wx:if="{{board.winner}}" class="owner-badge">{{board.winner}}</text>
+          <text wx:elif="{{board.full}}" class="full-badge">满</text>
+        </view>
+        <view class="cell-grid">
+          <view
+            wx:for="{{board.cells}}"
+            wx:for-item="cell"
+            wx:key="cellIndex"
+            class="{{cell.classes}}"
+            data-board-index="{{board.boardIndex}}"
+            data-cell-index="{{cell.cellIndex}}"
+            bindtap="handleCellTap"
+          >
+            {{cell.value}}
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button class="action-button" bindtap="handleUndo" disabled="{{moveHistory.length === 0 || isComputerThinking}}">
+      撤销
+    </button>
+    <button class="action-button" bindtap="handleRestart">
+      重新开始
+    </button>
+    <button class="action-button" bindtap="handleResetScores">
+      重置比分
+    </button>
+    <button class="action-button" bindtap="showRules">
+      规则
+    </button>
+  </view>
+
+  <view class="history-panel">
+    <view class="history-header">
+      <text class="section-title">落子历史</text>
+      <button
+        wx:if="{{moveHistory.length > 6}}"
+        class="link-button"
+        bindtap="toggleHistory"
+      >
+        {{historyExpanded ? '收起' : '展开'}}
+      </button>
+    </view>
+    <view wx:if="{{displayedHistory.length === 0}}" class="empty-history">还没有落子</view>
+    <view wx:else class="history-list">
+      <view wx:for="{{displayedHistory}}" wx:key="step" class="history-item">
+        {{item.text}}
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{rulesVisible}}" class="modal-mask" catchtap="hideRules">
+    <view class="rules-dialog" catchtap="noop">
+      <view class="rules-title">游戏规则</view>
+      <view class="rules-text">
+        <view>棋盘由 9 个小棋盘组成。你下在哪个小格，对手下一步就要去对应位置的小棋盘。</view>
+        <view>如果目标小棋盘已满，对手可以自由选择其他未满小棋盘。</view>
+        <view>小棋盘三连后会归属给获胜玩家，但只要还有空格，仍然可以继续落子。</view>
+        <view>已归属小棋盘的归属不会改变，后续落子仍会控制对手下一步的位置。</view>
+        <view>大棋盘上先占领三个连成一线的小棋盘即可获胜。</view>
+      </view>
+      <button class="primary-button" bindtap="hideRules">知道了</button>
+    </view>
+  </view>
+</view>

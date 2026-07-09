@@ -1,0 +1,11 @@
+{
+  "pages": ["pages/game/game"],
+  "window": {
+    "navigationBarTitleText": "终极井字棋",
+    "navigationBarBackgroundColor": "#0f172a",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f4f7fb"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

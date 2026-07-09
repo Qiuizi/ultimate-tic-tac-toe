@@ -1,0 +1,14 @@
+{
+  "description": "Ultimate Tic-Tac-Toe WeChat Mini Program MVP",
+  "appid": "touristappid",
+  "projectname": "ultimate-tic-tac-toe-miniprogram",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": false
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.8.0",
+  "srcMiniprogramRoot": "./"
+}

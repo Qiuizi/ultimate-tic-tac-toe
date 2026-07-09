@@ -1,0 +1,295 @@
+.page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 24rpx;
+  background: #f4f7fb;
+}
+
+.status-panel,
+.score-panel,
+.control-panel,
+.history-panel {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 20rpx;
+  padding: 22rpx;
+  border: 1rpx solid #d9e2ef;
+  border-radius: 14rpx;
+  background: #ffffff;
+}
+
+.status-title {
+  color: #0f172a;
+  font-size: 36rpx;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.status-detail,
+.feedback {
+  margin-top: 8rpx;
+  color: #526176;
+  font-size: 26rpx;
+  line-height: 1.45;
+}
+
+.feedback {
+  color: #b45309;
+}
+
+.score-panel {
+  display: flex;
+  gap: 14rpx;
+  padding: 18rpx;
+}
+
+.score-item {
+  flex: 1;
+  min-width: 0;
+  padding: 14rpx 10rpx;
+  border-radius: 10rpx;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.score-label {
+  display: block;
+  color: #64748b;
+  font-size: 22rpx;
+}
+
+.score-value {
+  display: block;
+  margin-top: 4rpx;
+  color: #0f172a;
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.control-label,
+.section-title {
+  display: block;
+  margin-bottom: 12rpx;
+  color: #334155;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.segmented {
+  display: flex;
+  gap: 12rpx;
+}
+
+.segment-button {
+  flex: 1;
+  min-width: 0;
+  height: 70rpx;
+  padding: 0 10rpx;
+  border: 1rpx solid #cbd5e1;
+  border-radius: 10rpx;
+  background: #ffffff;
+  color: #334155;
+  font-size: 26rpx;
+  line-height: 70rpx;
+}
+
+.segment-button.is-active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.board-wrap {
+  width: 100%;
+  margin: 24rpx 0;
+}
+
+.macro-board {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10rpx;
+  width: 100%;
+  max-width: 702rpx;
+  margin: 0 auto;
+}
+
+.small-board {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 8rpx;
+  border: 3rpx solid #d5deea;
+  border-radius: 12rpx;
+  background: #ffffff;
+}
+
+.small-board.is-playable {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4rpx rgba(37, 99, 235, 0.12);
+}
+
+.small-board.owner-x {
+  background: #eef6ff;
+}
+
+.small-board.owner-o {
+  background: #fff7ed;
+}
+
+.small-board.is-full {
+  opacity: 0.72;
+}
+
+.board-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30rpx;
+  margin-bottom: 6rpx;
+  color: #64748b;
+  font-size: 18rpx;
+}
+
+.owner-badge,
+.full-badge {
+  min-width: 30rpx;
+  height: 30rpx;
+  border-radius: 999rpx;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 800;
+  line-height: 30rpx;
+  text-align: center;
+}
+
+.full-badge {
+  background: #94a3b8;
+  font-size: 18rpx;
+}
+
+.cell-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5rpx;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  min-height: 52rpx;
+  border-radius: 8rpx;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.cell.is-disabled {
+  color: #94a3b8;
+}
+
+.cell.is-filled {
+  background: #e2e8f0;
+}
+
+.cell.is-winning {
+  background: #bbf7d0;
+  color: #166534;
+}
+
+.cell.is-latest {
+  box-shadow: inset 0 0 0 4rpx #f59e0b;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.action-button,
+.primary-button,
+.link-button {
+  min-width: 0;
+  height: 72rpx;
+  border-radius: 10rpx;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 26rpx;
+  line-height: 72rpx;
+}
+
+.action-button[disabled] {
+  background: #cbd5e1;
+  color: #64748b;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.link-button {
+  width: 120rpx;
+  height: 54rpx;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 24rpx;
+  line-height: 54rpx;
+}
+
+.empty-history,
+.history-item {
+  color: #526176;
+  font-size: 24rpx;
+  line-height: 1.55;
+}
+
+.history-item {
+  padding: 10rpx 0;
+  border-top: 1rpx solid #e2e8f0;
+}
+
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 36rpx;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.rules-dialog {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 650rpx;
+  padding: 28rpx;
+  border-radius: 18rpx;
+  background: #ffffff;
+}
+
+.rules-title {
+  margin-bottom: 18rpx;
+  color: #0f172a;
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.rules-text view {
+  margin-bottom: 14rpx;
+  color: #334155;
+  font-size: 26rpx;
+  line-height: 1.55;
+}
+
+.primary-button {
+  margin-top: 18rpx;
+  background: #2563eb;
+}
