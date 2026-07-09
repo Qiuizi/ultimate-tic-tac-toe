@@ -23,7 +23,7 @@ Unlike regular tic-tac-toe, this game uses 9 small boards. The cell you choose d
 
 - Local two-player mode.
 - Computer mode: player is `X`, computer is `O`.
-- Normal and hard AI options.
+- Normal, hard, and expert AI options.
 - Online room-code MVP: mock preview by default, cross-device sync when Supabase is configured.
 - In-page rules modal for new players.
 - Clear hints for whose turn it is, which board is forced, and when free choice is allowed.
@@ -106,7 +106,15 @@ Hard AI adds a shallow Alpha-Beta search on top of the same evaluation:
 - leaf nodes use the heuristic evaluator,
 - there is a time guard of about 950ms to avoid freezing the page.
 
-Hard mode is stronger than normal mode, but it is not a perfect or unbeatable AI.
+Expert AI uses a stronger time-limited search:
+
+- iterative deepening Alpha-Beta, up to 4 plies by default,
+- candidate move ordering for big-board wins, blocks, small-board claims, and board-sending risk,
+- a per-search transposition table that is not stored in `localStorage`,
+- a stronger evaluator for big-board threats, small-board potential, center / corner value, and move routing,
+- a default time limit of about 1200ms, returning the best fully completed result if time runs out.
+
+Expert mode is stronger, but it is not a perfect or unbeatable AI. Ultimate Tic-Tac-Toe has a large search space, so the AI still uses time limits and heuristic evaluation to keep the browser responsive.
 
 ## Tech Stack
 
@@ -199,7 +207,7 @@ The deploy workflow sets `ONLINE_PROVIDER=supabase` during the build step and re
 
 ## Future Improvements
 
-- Tune the hard AI evaluation so it makes fewer bad board-sending decisions.
+- Keep tuning expert move ordering and position evaluation.
 - Add page-refresh restore and clearer disconnect states for online mode.
 - Move deeper AI search into a Web Worker if the search depth is increased.
 - Add a fuller review or replay view on top of the complete move history.

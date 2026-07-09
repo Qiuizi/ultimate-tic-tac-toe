@@ -10,12 +10,17 @@ import {
   createGameSnapshot,
   createInitialState,
   evaluateGameState,
+  evaluateExpertGameState,
   getAvailableBoards,
   getComputerMove,
+  getExpertComputerMove,
   getHardComputerMove,
   getLegalMoves,
+  getStateKey,
   getUndoMoveCount,
   getWinner,
+  iterativeDeepeningSearch,
+  orderCandidateMoves,
   restoreGameSnapshot,
   shouldIgnoreScheduledComputerMove,
 } from "../src/game.js";
@@ -708,6 +713,156 @@ test("hard computer move still takes an immediate macro win", () => {
     boardIndex: 2,
     cellIndex: 2,
   });
+});
+
+test("expert computer move returns a legal ultimate move", () => {
+  const state = applyMove(createInitialState(), 4, 0);
+  const move = getExpertComputerMove(state, PLAYERS.O, PLAYERS.X, {
+    maxDepth: 2,
+    timeLimitMs: 80,
+    maxCandidatesPerNode: 8,
+  });
+
+  assert.equal(
+    getLegalMoves(state).some(
+      (legalMove) =>
+        legalMove.boardIndex === move.boardIndex && legalMove.cellIndex === move.cellIndex,
+    ),
+    true,
+  );
+});
+
+test("expert computer move does not choose a full small board", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.boards[0].cells = Array(9).fill(PLAYERS.X);
+  state.boards[0].full = true;
+  state.forcedBoard = null;
+
+  const move = getExpertComputerMove(state, PLAYERS.O, PLAYERS.X, {
+    maxDepth: 1,
+    timeLimitMs: 60,
+  });
+
+  assert.notEqual(move.boardIndex, 0);
+});
+
+test("expert computer move can play inside a claimed board that is not full", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.forcedBoard = 4;
+  state.boards[4].winner = PLAYERS.X;
+  state.boards[4].winningLine = [0, 1, 2];
+  state.boards[4].cells = [
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.X,
+    null,
+    PLAYERS.O,
+    null,
+    null,
+    null,
+    null,
+  ];
+
+  const move = getExpertComputerMove(state, PLAYERS.O, PLAYERS.X, {
+    maxDepth: 1,
+    timeLimitMs: 60,
+  });
+
+  assert.equal(move.boardIndex, 4);
+  assert.equal(canPlayMove(state, move.boardIndex, move.cellIndex), true);
+});
+
+test("expert move in a claimed board does not claim it again", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.forcedBoard = 4;
+  state.boards[4].winner = PLAYERS.X;
+  state.boards[4].winningLine = [0, 1, 2];
+  state.boards[4].cells = [
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.X,
+    PLAYERS.O,
+    PLAYERS.O,
+    null,
+    null,
+    null,
+    null,
+  ];
+
+  const orderedMoves = orderCandidateMoves(state, getLegalMoves(state), PLAYERS.O, PLAYERS.X);
+  const next = applyMove(state, orderedMoves[0].boardIndex, orderedMoves[0].cellIndex);
+
+  assert.equal(next.boards[4].winner, PLAYERS.X);
+  assert.equal(next.moveHistory.at(-1).wonSmallBoard, false);
+});
+
+test("expert computer move takes an immediate macro win", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.boards[0].winner = PLAYERS.O;
+  state.boards[1].winner = PLAYERS.O;
+  state.boards[2].cells = [PLAYERS.O, PLAYERS.O, null, null, null, null, null, null, null];
+
+  assert.deepEqual(
+    getComputerMove(state, PLAYERS.O, PLAYERS.X, AI_DIFFICULTIES.EXPERT),
+    { boardIndex: 2, cellIndex: 2 },
+  );
+});
+
+test("expert computer move blocks an immediate human macro win", () => {
+  const state = createInitialState(PLAYERS.O);
+  state.boards[0].winner = PLAYERS.X;
+  state.boards[1].winner = PLAYERS.X;
+  state.boards[2].cells = [PLAYERS.X, PLAYERS.X, null, null, null, null, null, null, null];
+
+  assert.deepEqual(
+    getComputerMove(state, PLAYERS.O, PLAYERS.X, AI_DIFFICULTIES.EXPERT),
+    { boardIndex: 2, cellIndex: 2 },
+  );
+});
+
+test("expert search timeout still falls back to a legal move", () => {
+  const state = applyMove(createInitialState(), 4, 0);
+  const move =
+    iterativeDeepeningSearch(state, PLAYERS.O, PLAYERS.X, {
+      maxDepth: 4,
+      timeLimitMs: 0,
+      maxCandidatesPerNode: 4,
+    }) ||
+    getExpertComputerMove(state, PLAYERS.O, PLAYERS.X, {
+      maxDepth: 1,
+      timeLimitMs: 1,
+    });
+
+  assert.equal(
+    getLegalMoves(state).some(
+      (legalMove) =>
+        legalMove.boardIndex === move.boardIndex && legalMove.cellIndex === move.cellIndex,
+    ),
+    true,
+  );
+});
+
+test("expert evaluation and state key are finite and stable", () => {
+  const state = applyMove(createInitialState(), 4, 0);
+
+  assert.equal(Number.isFinite(evaluateExpertGameState(state, PLAYERS.O, PLAYERS.X)), true);
+  assert.equal(getStateKey(state), getStateKey(state));
+});
+
+test("expert difficulty does not replace normal or hard AI branches", () => {
+  const state = applyMove(createInitialState(), 4, 0);
+  const normalMove = getComputerMove(state, PLAYERS.O, PLAYERS.X, AI_DIFFICULTIES.NORMAL);
+  const hardMove = getComputerMove(state, PLAYERS.O, PLAYERS.X, AI_DIFFICULTIES.HARD);
+
+  for (const move of [normalMove, hardMove]) {
+    assert.equal(
+      getLegalMoves(state).some(
+        (legalMove) =>
+          legalMove.boardIndex === move.boardIndex && legalMove.cellIndex === move.cellIndex,
+      ),
+      true,
+    );
+  }
 });
 
 test("alpha-beta evaluates terminal states and respects shallow depth", () => {

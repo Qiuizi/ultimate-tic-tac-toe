@@ -167,6 +167,9 @@ function renderDifficultySelector() {
         <button class="mode-button ${aiDifficulty === AI_DIFFICULTIES.HARD ? "is-active" : ""}" type="button" data-difficulty="${AI_DIFFICULTIES.HARD}">
           困难
         </button>
+        <button class="mode-button ${aiDifficulty === AI_DIFFICULTIES.EXPERT ? "is-active" : ""}" type="button" data-difficulty="${AI_DIFFICULTIES.EXPERT}">
+          专家
+        </button>
       </div>
     </section>
   `;

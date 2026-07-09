@@ -113,6 +113,37 @@ test("hard AI responds without page errors", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test("expert AI can be selected and responds automatically", async ({ page }) => {
+  await switchToComputerMode(page);
+  await page.getByTestId("difficulty-select").getByRole("button", { name: "专家" }).click();
+
+  await playCell(page, 4, 0);
+
+  await expect(page.locator(".status-title", { hasText: "电脑思考中..." })).toBeVisible();
+  await expect(page.getByTestId("cell-0-0")).toHaveAttribute("aria-disabled", "true");
+  await expect(filledCells(page)).toHaveCount(2, { timeout: 5000 });
+  await expect(page.getByTestId("move-history")).toContainText("第 2 步：O");
+});
+
+test("switching expert difficulty clears pending AI moves", async ({ page }) => {
+  await switchToComputerMode(page);
+
+  await playCell(page, 4, 0);
+  await page.getByTestId("difficulty-select").getByRole("button", { name: "专家" }).click();
+
+  await expect(filledCells(page)).toHaveCount(0);
+  await expect(page.getByTestId("move-history")).toContainText("还没有落子");
+  await page.waitForTimeout(1400);
+  await expect(filledCells(page)).toHaveCount(0);
+});
+
+test("online mode does not show AI difficulty controls", async ({ page }) => {
+  await switchToOnlineMode(page);
+
+  await expect(page.getByTestId("difficulty-select")).toHaveCount(0);
+  await expect(page.getByTestId("online-panel")).toBeVisible();
+});
+
 test("reset score clears persisted scoreboard values", async ({ page }) => {
   await page.evaluate(() => {
     localStorage.setItem(
