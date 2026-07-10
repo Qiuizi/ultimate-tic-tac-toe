@@ -1,186 +1,196 @@
-<view class="page">
-  <view class="card status-card {{gameOver ? 'is-complete' : ''}}">
-    <view class="status-header">
-      <view class="status-copy">
-        <text class="eyebrow">当前状态</text>
-        <view class="status-title-row">
-          <text class="status-title">{{statusTitle}}</text>
-          <text wx:if="{{!draw}}" class="player-badge player-{{currentPlayer}}">{{currentPlayer}}</text>
-        </view>
-      </view>
-      <view wx:if="{{isComputerThinking}}" class="thinking-pill">
-        <view class="thinking-dot"></view>
-        <text>思考中</text>
-      </view>
-    </view>
-
-    <view class="status-detail">{{statusDetail}}</view>
-
-    <view wx:if="{{!gameOver}}" class="target-row">
-      <text class="target-label">当前目标</text>
-      <text wx:if="{{forcedBoardName}}" class="target-value">{{forcedBoardName}}</text>
-      <text wx:else class="target-value">自由选择</text>
-    </view>
-
-    <view wx:if="{{feedback}}" class="feedback">
-      <view class="feedback-dot"></view>
-      <text>{{feedback}}</text>
-    </view>
-  </view>
-
-  <view class="card score-card">
-    <view class="card-header compact-header">
-      <text class="card-title">计分板</text>
-      <text class="card-caption">本机记录</text>
-    </view>
-    <view class="score-grid">
-      <view class="score-item score-x">
-        <text class="score-label">X</text>
-        <text class="score-value">{{scores.X}}</text>
-      </view>
-      <view class="score-divider"></view>
-      <view class="score-item score-o">
-        <text class="score-label">O</text>
-        <text class="score-value">{{scores.O}}</text>
-      </view>
-      <view class="score-divider"></view>
-      <view class="score-item score-draw">
-        <text class="score-label">平局</text>
-        <text class="score-value">{{scores.draw}}</text>
-      </view>
-    </view>
-  </view>
-
-  <view class="card mode-card">
-    <view class="control-group">
-      <view class="control-heading">
-        <text class="control-label">游戏模式</text>
-      </view>
-      <view class="segmented">
-        <button
-          wx:for="{{modeOptions}}"
-          wx:key="value"
-          class="segment-button {{gameMode === item.value ? 'is-active' : ''}}"
-          data-mode="{{item.value}}"
-          bindtap="handleModeTap"
-        >
-          {{item.label}}
-        </button>
-      </view>
-    </view>
-
-    <view wx:if="{{gameMode === 'computer'}}" class="control-group difficulty-group">
-      <view class="control-heading">
-        <text class="control-label">AI 难度</text>
-      </view>
-      <view class="segmented difficulty">
-        <button
-          wx:for="{{difficultyOptions}}"
-          wx:key="value"
-          class="segment-button {{aiDifficulty === item.value ? 'is-active' : ''}}"
-          data-difficulty="{{item.value}}"
-          bindtap="handleDifficultyTap"
-        >
-          {{item.label}}
-        </button>
-      </view>
-    </view>
-  </view>
-
-  <view class="card board-card">
-    <view class="card-header board-header">
-      <view>
-        <text class="card-title">游戏棋盘</text>
-      </view>
-      <view class="board-target {{gameOver ? 'is-finished' : ''}}">
-        <text wx:if="{{gameOver}}">本局结束</text>
-        <text wx:elif="{{forcedBoardName}}">目标 · {{forcedBoardName}}</text>
-        <text wx:else>自由选择</text>
-      </view>
-    </view>
-
-    <view class="macro-board">
-      <view
-        wx:for="{{boards}}"
-        wx:for-item="board"
-        wx:key="boardIndex"
-        class="{{board.classes}}"
-      >
-        <view class="board-meta">
-          <text class="board-name">{{board.name}}</text>
-          <view class="board-badges">
-            <text wx:if="{{board.winner}}" class="owner-badge owner-{{board.winner}}">{{board.winner}}</text>
-            <text wx:if="{{board.full}}" class="full-badge">已满</text>
+<view
+  class="page {{layoutMode}} {{isShortScreen ? 'short-screen' : ''}}"
+  style="padding-bottom: {{pageBottomPadding}}px;"
+>
+  <view class="page-content">
+    <view class="card status-card {{gameOver ? 'is-complete' : ''}}">
+      <view class="status-header">
+        <view class="status-copy">
+          <text class="eyebrow">当前状态</text>
+          <view class="status-title-row">
+            <text class="status-title">{{statusTitle}}</text>
+            <text wx:if="{{!draw}}" class="player-badge player-{{currentPlayer}}">{{currentPlayer}}</text>
           </view>
         </view>
-        <view class="cell-grid">
-          <view
-            wx:for="{{board.cells}}"
-            wx:for-item="cell"
-            wx:key="cellIndex"
-            class="{{cell.classes}}"
-            data-board-index="{{board.boardIndex}}"
-            data-cell-index="{{cell.cellIndex}}"
-            bindtap="handleCellTap"
+        <view wx:if="{{isComputerThinking}}" class="thinking-pill">
+          <view class="thinking-dot"></view>
+          <text>思考中</text>
+        </view>
+      </view>
+
+      <view class="status-detail">{{statusDetail}}</view>
+
+      <view wx:if="{{!gameOver}}" class="target-row">
+        <text class="target-label">当前目标</text>
+        <text wx:if="{{forcedBoardName}}" class="target-value">{{forcedBoardName}}</text>
+        <text wx:else class="target-value">自由选择</text>
+      </view>
+
+      <view wx:if="{{feedback}}" class="feedback">
+        <view class="feedback-dot"></view>
+        <text>{{feedback}}</text>
+      </view>
+    </view>
+
+    <view class="card score-card">
+      <view class="card-header compact-header">
+        <text class="card-title">计分板</text>
+        <text class="card-caption">本机记录</text>
+      </view>
+      <view class="score-grid">
+        <view class="score-item score-x">
+          <text class="score-label">X</text>
+          <text class="score-value">{{scores.X}}</text>
+        </view>
+        <view class="score-divider"></view>
+        <view class="score-item score-o">
+          <text class="score-label">O</text>
+          <text class="score-value">{{scores.O}}</text>
+        </view>
+        <view class="score-divider"></view>
+        <view class="score-item score-draw">
+          <text class="score-label">平局</text>
+          <text class="score-value">{{scores.draw}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card mode-card">
+      <view class="control-group">
+        <view class="control-heading">
+          <text class="control-label">游戏模式</text>
+        </view>
+        <view class="segmented">
+          <button
+            wx:for="{{modeOptions}}"
+            wx:key="value"
+            class="segment-button {{gameMode === item.value ? 'is-active' : ''}}"
+            data-mode="{{item.value}}"
+            bindtap="handleModeTap"
           >
-            {{cell.value}}
+            {{item.label}}
+          </button>
+        </view>
+      </view>
+
+      <view wx:if="{{gameMode === 'computer'}}" class="control-group difficulty-group">
+        <view class="control-heading">
+          <text class="control-label">AI 难度</text>
+        </view>
+        <view class="segmented difficulty">
+          <button
+            wx:for="{{difficultyOptions}}"
+            wx:key="value"
+            class="segment-button {{aiDifficulty === item.value ? 'is-active' : ''}}"
+            data-difficulty="{{item.value}}"
+            bindtap="handleDifficultyTap"
+          >
+            {{item.label}}
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <view class="card board-card">
+      <view class="card-header board-header">
+        <text class="card-title">游戏棋盘</text>
+        <view class="board-target {{gameOver ? 'is-finished' : ''}}">
+          <text wx:if="{{gameOver}}">本局结束</text>
+          <text wx:elif="{{forcedBoardName}}">目标 · {{forcedBoardName}}</text>
+          <text wx:else>自由选择</text>
+        </view>
+      </view>
+
+      <view
+        class="macro-board"
+        style="width: {{boardSize}}px; height: {{boardSize}}px;"
+      >
+        <view
+          wx:for="{{boards}}"
+          wx:for-item="board"
+          wx:key="boardIndex"
+          class="{{board.classes}}"
+        >
+          <view class="board-meta">
+            <text class="board-name">{{board.name}}</text>
+            <view class="board-badges">
+              <text wx:if="{{board.winner}}" class="owner-badge owner-{{board.winner}}">{{board.winner}}</text>
+              <text wx:if="{{board.full}}" class="full-badge">已满</text>
+            </view>
+          </view>
+          <view class="cell-grid">
+            <view
+              wx:for="{{board.cells}}"
+              wx:for-item="cell"
+              wx:key="cellIndex"
+              class="{{cell.classes}}"
+              data-board-index="{{board.boardIndex}}"
+              data-cell-index="{{cell.cellIndex}}"
+              bindtap="handleCellTap"
+            >
+              {{cell.value}}
+            </view>
           </view>
         </view>
       </view>
     </view>
-  </view>
 
-  <view class="card action-card">
-    <view class="actions">
-      <button class="action-button action-primary" bindtap="handleRestart">
-        重新开始
-      </button>
-      <button
-        class="action-button action-secondary"
-        bindtap="handleUndo"
-        disabled="{{moveHistory.length === 0 || isComputerThinking}}"
-      >
-        撤销
-      </button>
-      <button class="action-button action-secondary" bindtap="showRules">
-        规则
-      </button>
-      <button class="action-button action-danger" bindtap="handleResetScores">
-        重置比分
-      </button>
-    </view>
-  </view>
-
-  <view class="card history-card">
-    <view class="history-header">
-      <view>
-        <text class="card-title">落子历史</text>
-        <text class="history-caption">共 {{moveHistory.length}} 步</text>
+    <view class="card action-card">
+      <view class="actions">
+        <button class="action-button action-primary" bindtap="handleRestart">
+          重新开始
+        </button>
+        <button
+          class="action-button action-secondary"
+          bindtap="handleUndo"
+          disabled="{{moveHistory.length === 0 || isComputerThinking}}"
+        >
+          撤销
+        </button>
+        <button class="action-button action-secondary" bindtap="showRules">
+          规则
+        </button>
+        <button class="action-button action-danger" bindtap="handleResetScores">
+          重置比分
+        </button>
       </view>
-      <button
-        wx:if="{{moveHistory.length > 6}}"
-        class="link-button"
-        bindtap="toggleHistory"
-      >
-        {{historyExpanded ? '收起' : '展开'}}
-      </button>
     </view>
 
-    <view wx:if="{{displayedHistory.length === 0}}" class="empty-history">
-      <view class="empty-history-mark">·</view>
-      <text>落子后会在这里显示完整记录</text>
-    </view>
-    <view wx:else class="history-list">
-      <view wx:for="{{displayedHistory}}" wx:key="step" class="history-item">
-        <text class="step-number">{{item.step}}</text>
-        <text class="history-player player-{{item.player}}">{{item.player}}</text>
-        <text class="history-text">{{item.text}}</text>
+    <view class="card history-card">
+      <view class="history-header">
+        <view>
+          <text class="card-title">落子历史</text>
+          <text class="history-caption">共 {{moveHistory.length}} 步</text>
+        </view>
+        <button
+          wx:if="{{moveHistory.length > historyCollapsedCount}}"
+          class="link-button"
+          bindtap="toggleHistory"
+        >
+          {{historyExpanded ? '收起' : '展开'}}
+        </button>
+      </view>
+
+      <view wx:if="{{displayedHistory.length === 0}}" class="empty-history">
+        <view class="empty-history-mark">·</view>
+        <text>落子后会在这里显示完整记录</text>
+      </view>
+      <view wx:else class="history-list">
+        <view wx:for="{{displayedHistory}}" wx:key="step" class="history-item">
+          <text class="step-number">{{item.step}}</text>
+          <text class="history-player player-{{item.player}}">{{item.player}}</text>
+          <text class="history-text">{{item.text}}</text>
+        </view>
       </view>
     </view>
   </view>
 
   <view wx:if="{{rulesVisible}}" class="modal-mask" catchtap="hideRules">
-    <view class="rules-dialog" catchtap="noop">
+    <view
+      class="rules-dialog"
+      style="padding-bottom: {{dialogBottomPadding}}px;"
+      catchtap="noop"
+    >
       <view class="dialog-handle"></view>
       <view class="rules-header">
         <text class="rules-title">游戏规则</text>

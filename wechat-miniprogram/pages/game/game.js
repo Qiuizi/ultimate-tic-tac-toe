@@ -26,7 +26,23 @@ const MODES = {
 };
 
 const COMPUTER_DELAY_MS = 350;
-const HISTORY_COLLAPSED_COUNT = 6;
+const DEFAULT_WINDOW_WIDTH = 375;
+const DEFAULT_WINDOW_HEIGHT = 667;
+const COMPACT_MAX_WIDTH = 360;
+const REGULAR_MAX_WIDTH = 430;
+const SHORT_SCREEN_MAX_HEIGHT = 680;
+const MAX_CONTENT_WIDTH = 500;
+const MAX_BOARD_SIZE = 420;
+const PAGE_HORIZONTAL_PADDING = {
+  compact: 10,
+  regular: 14,
+  wide: 14,
+};
+const BOARD_CARD_HORIZONTAL_PADDING = {
+  compact: 8,
+  regular: 10,
+  wide: 10,
+};
 
 Page({
   data: {
@@ -49,6 +65,19 @@ Page({
     feedback: "",
     statusTitle: "X 先手",
     statusDetail: "请选择任意未满小棋盘落子",
+    windowWidth: DEFAULT_WINDOW_WIDTH,
+    windowHeight: DEFAULT_WINDOW_HEIGHT,
+    screenWidth: DEFAULT_WINDOW_WIDTH,
+    screenHeight: DEFAULT_WINDOW_HEIGHT,
+    pixelRatio: 1,
+    safeArea: null,
+    safeAreaBottom: 0,
+    pageBottomPadding: 28,
+    dialogBottomPadding: 16,
+    layoutMode: "regular",
+    boardSize: 327,
+    isShortScreen: true,
+    historyCollapsedCount: 4,
     modeOptions: [
       { value: MODES.TWO_PLAYER, label: "本地双人" },
       { value: MODES.COMPUTER, label: "人机对战" },
@@ -62,11 +91,13 @@ Page({
 
   onLoad() {
     const settings = loadSettings();
+    const layout = getLayoutMetrics();
     this.state = createInitialState();
     this.undoStack = [];
     this.computerTimer = null;
     this.lastScoredMoveCount = null;
     this.setData({
+      ...layout,
       gameMode: settings.gameMode || MODES.TWO_PLAYER,
       aiDifficulty: settings.aiDifficulty || AI_DIFFICULTIES.NORMAL,
       scores: loadScores(),
@@ -76,6 +107,20 @@ Page({
 
   onUnload() {
     this.clearComputerTimer();
+  },
+
+  onResize(event) {
+    const resizeSize = event && event.size ? event.size : null;
+    this.updateLayout(resizeSize);
+  },
+
+  updateLayout(resizeSize) {
+    const layout = getLayoutMetrics(resizeSize);
+    this.setData(layout, () => {
+      if (this.state) {
+        this.syncView();
+      }
+    });
   },
 
   handleCellTap(event) {
@@ -283,7 +328,7 @@ Page({
     }));
     const displayedHistory = this.data.historyExpanded
       ? moveHistory
-      : moveHistory.slice(-HISTORY_COLLAPSED_COUNT);
+      : moveHistory.slice(-this.data.historyCollapsedCount);
 
     this.setData({
       boards: buildBoardViews(this.state, availableBoards, lastMove, this.data.isComputerThinking),
@@ -455,4 +500,130 @@ function formatMove(move) {
   }
 
   return parts.join("，");
+}
+
+function getLayoutMetrics(resizeSize = null) {
+  const windowInfo = readWindowInfo();
+  const windowWidth = getPositiveNumber(
+    resizeSize && resizeSize.windowWidth,
+    windowInfo.windowWidth,
+    DEFAULT_WINDOW_WIDTH,
+  );
+  const windowHeight = getPositiveNumber(
+    resizeSize && resizeSize.windowHeight,
+    windowInfo.windowHeight,
+    DEFAULT_WINDOW_HEIGHT,
+  );
+  const screenWidth = getPositiveNumber(
+    windowInfo.screenWidth,
+    windowWidth,
+    DEFAULT_WINDOW_WIDTH,
+  );
+  const screenHeight = getPositiveNumber(
+    windowInfo.screenHeight,
+    windowHeight,
+    DEFAULT_WINDOW_HEIGHT,
+  );
+  const pixelRatio = getPositiveNumber(windowInfo.pixelRatio, 1);
+  const safeArea = normalizeSafeArea(windowInfo.safeArea);
+  const safeAreaBottom = safeArea
+    ? Math.max(0, Math.round(screenHeight - safeArea.bottom))
+    : 0;
+  const layoutMode = getLayoutMode(windowWidth);
+  const isShortScreen = windowHeight <= SHORT_SCREEN_MAX_HEIGHT;
+  const pagePadding = PAGE_HORIZONTAL_PADDING[layoutMode];
+  const boardCardPadding = BOARD_CARD_HORIZONTAL_PADDING[layoutMode];
+  const contentWidth = Math.min(
+    Math.max(0, windowWidth - pagePadding * 2),
+    MAX_CONTENT_WIDTH,
+  );
+  const boardSize = Math.max(
+    0,
+    Math.floor(
+      Math.min(contentWidth - boardCardPadding * 2, MAX_BOARD_SIZE),
+    ),
+  );
+  const pageBottomPadding =
+    (layoutMode === "compact" ? 24 : layoutMode === "wide" ? 32 : 28) +
+    safeAreaBottom;
+  const dialogBottomPadding =
+    (layoutMode === "compact" || isShortScreen ? 14 : 16) +
+    safeAreaBottom;
+
+  return {
+    windowWidth,
+    windowHeight,
+    screenWidth,
+    screenHeight,
+    pixelRatio,
+    safeArea,
+    safeAreaBottom,
+    pageBottomPadding,
+    dialogBottomPadding,
+    layoutMode,
+    boardSize,
+    isShortScreen,
+    historyCollapsedCount:
+      layoutMode === "compact" || isShortScreen ? 4 : 6,
+  };
+}
+
+function readWindowInfo() {
+  try {
+    if (typeof wx !== "undefined" && typeof wx.getWindowInfo === "function") {
+      return wx.getWindowInfo() || {};
+    }
+  } catch (error) {
+    // Fall through to the older synchronous API.
+  }
+
+  try {
+    if (typeof wx !== "undefined" && typeof wx.getSystemInfoSync === "function") {
+      return wx.getSystemInfoSync() || {};
+    }
+  } catch (error) {
+    return {};
+  }
+
+  return {};
+}
+
+function getLayoutMode(windowWidth) {
+  if (windowWidth <= COMPACT_MAX_WIDTH) {
+    return "compact";
+  }
+
+  if (windowWidth <= REGULAR_MAX_WIDTH) {
+    return "regular";
+  }
+
+  return "wide";
+}
+
+function normalizeSafeArea(safeArea) {
+  if (!safeArea || typeof safeArea !== "object") {
+    return null;
+  }
+
+  const top = Number(safeArea.top);
+  const right = Number(safeArea.right);
+  const bottom = Number(safeArea.bottom);
+  const left = Number(safeArea.left);
+
+  if (![top, right, bottom, left].every(Number.isFinite)) {
+    return null;
+  }
+
+  return { top, right, bottom, left };
+}
+
+function getPositiveNumber(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) {
+      return number;
+    }
+  }
+
+  return 0;
 }
