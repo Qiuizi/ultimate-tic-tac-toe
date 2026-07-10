@@ -378,6 +378,7 @@ function buildBoardViews(state, availableBoards, lastMove, isComputerThinking) {
           disabled,
           classes: [
             "cell",
+            cell ? `mark-${cell.toLowerCase()}` : "",
             cell ? "is-filled" : "",
             disabled ? "is-disabled" : "",
             isWinningCell ? "is-winning" : "",
@@ -439,7 +440,7 @@ function getStatusDetail(state, data) {
 function formatMove(move) {
   const boardName = BOARD_NAMES[move.boardIndex];
   const cellName = BOARD_NAMES[move.cellIndex];
-  const parts = [`第 ${move.step} 步：${move.player}`, `${boardName} / ${cellName}`];
+  const parts = [`${boardName} / ${cellName}`];
 
   if (move.wonSmallBoard) {
     parts.push(`赢下${boardName}`);

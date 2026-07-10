@@ -1,56 +1,104 @@
 <view class="page">
-  <view class="status-panel">
-    <view class="status-title">{{statusTitle}}</view>
+  <view class="card status-card {{gameOver ? 'is-complete' : ''}}">
+    <view class="status-header">
+      <view class="status-copy">
+        <text class="eyebrow">当前状态</text>
+        <view class="status-title-row">
+          <text class="status-title">{{statusTitle}}</text>
+          <text wx:if="{{!draw}}" class="player-badge player-{{currentPlayer}}">{{currentPlayer}}</text>
+        </view>
+      </view>
+      <view wx:if="{{isComputerThinking}}" class="thinking-pill">
+        <view class="thinking-dot"></view>
+        <text>思考中</text>
+      </view>
+    </view>
+
     <view class="status-detail">{{statusDetail}}</view>
-    <view wx:if="{{feedback}}" class="feedback">{{feedback}}</view>
-  </view>
 
-  <view class="score-panel">
-    <view class="score-item">
-      <text class="score-label">X</text>
-      <text class="score-value">{{scores.X}}</text>
+    <view wx:if="{{!gameOver}}" class="target-row">
+      <text class="target-label">当前目标</text>
+      <text wx:if="{{forcedBoardName}}" class="target-value">{{forcedBoardName}}</text>
+      <text wx:else class="target-value">自由选择</text>
     </view>
-    <view class="score-item">
-      <text class="score-label">O</text>
-      <text class="score-value">{{scores.O}}</text>
-    </view>
-    <view class="score-item">
-      <text class="score-label">平局</text>
-      <text class="score-value">{{scores.draw}}</text>
+
+    <view wx:if="{{feedback}}" class="feedback">
+      <view class="feedback-dot"></view>
+      <text>{{feedback}}</text>
     </view>
   </view>
 
-  <view class="control-panel">
-    <view class="control-label">游戏模式</view>
-    <view class="segmented">
-      <button
-        wx:for="{{modeOptions}}"
-        wx:key="value"
-        class="segment-button {{gameMode === item.value ? 'is-active' : ''}}"
-        data-mode="{{item.value}}"
-        bindtap="handleModeTap"
-      >
-        {{item.label}}
-      </button>
+  <view class="card score-card">
+    <view class="card-header compact-header">
+      <text class="card-title">计分板</text>
+      <text class="card-caption">本机记录</text>
+    </view>
+    <view class="score-grid">
+      <view class="score-item score-x">
+        <text class="score-label">X</text>
+        <text class="score-value">{{scores.X}}</text>
+      </view>
+      <view class="score-divider"></view>
+      <view class="score-item score-o">
+        <text class="score-label">O</text>
+        <text class="score-value">{{scores.O}}</text>
+      </view>
+      <view class="score-divider"></view>
+      <view class="score-item score-draw">
+        <text class="score-label">平局</text>
+        <text class="score-value">{{scores.draw}}</text>
+      </view>
     </view>
   </view>
 
-  <view wx:if="{{gameMode === 'computer'}}" class="control-panel">
-    <view class="control-label">AI 难度</view>
-    <view class="segmented difficulty">
-      <button
-        wx:for="{{difficultyOptions}}"
-        wx:key="value"
-        class="segment-button {{aiDifficulty === item.value ? 'is-active' : ''}}"
-        data-difficulty="{{item.value}}"
-        bindtap="handleDifficultyTap"
-      >
-        {{item.label}}
-      </button>
+  <view class="card mode-card">
+    <view class="control-group">
+      <view class="control-heading">
+        <text class="control-label">游戏模式</text>
+      </view>
+      <view class="segmented">
+        <button
+          wx:for="{{modeOptions}}"
+          wx:key="value"
+          class="segment-button {{gameMode === item.value ? 'is-active' : ''}}"
+          data-mode="{{item.value}}"
+          bindtap="handleModeTap"
+        >
+          {{item.label}}
+        </button>
+      </view>
+    </view>
+
+    <view wx:if="{{gameMode === 'computer'}}" class="control-group difficulty-group">
+      <view class="control-heading">
+        <text class="control-label">AI 难度</text>
+      </view>
+      <view class="segmented difficulty">
+        <button
+          wx:for="{{difficultyOptions}}"
+          wx:key="value"
+          class="segment-button {{aiDifficulty === item.value ? 'is-active' : ''}}"
+          data-difficulty="{{item.value}}"
+          bindtap="handleDifficultyTap"
+        >
+          {{item.label}}
+        </button>
+      </view>
     </view>
   </view>
 
-  <view class="board-wrap">
+  <view class="card board-card">
+    <view class="card-header board-header">
+      <view>
+        <text class="card-title">游戏棋盘</text>
+      </view>
+      <view class="board-target {{gameOver ? 'is-finished' : ''}}">
+        <text wx:if="{{gameOver}}">本局结束</text>
+        <text wx:elif="{{forcedBoardName}}">目标 · {{forcedBoardName}}</text>
+        <text wx:else>自由选择</text>
+      </view>
+    </view>
+
     <view class="macro-board">
       <view
         wx:for="{{boards}}"
@@ -59,9 +107,11 @@
         class="{{board.classes}}"
       >
         <view class="board-meta">
-          <text>{{board.name}}</text>
-          <text wx:if="{{board.winner}}" class="owner-badge">{{board.winner}}</text>
-          <text wx:elif="{{board.full}}" class="full-badge">满</text>
+          <text class="board-name">{{board.name}}</text>
+          <view class="board-badges">
+            <text wx:if="{{board.winner}}" class="owner-badge owner-{{board.winner}}">{{board.winner}}</text>
+            <text wx:if="{{board.full}}" class="full-badge">已满</text>
+          </view>
         </view>
         <view class="cell-grid">
           <view
@@ -80,24 +130,33 @@
     </view>
   </view>
 
-  <view class="actions">
-    <button class="action-button" bindtap="handleUndo" disabled="{{moveHistory.length === 0 || isComputerThinking}}">
-      撤销
-    </button>
-    <button class="action-button" bindtap="handleRestart">
-      重新开始
-    </button>
-    <button class="action-button" bindtap="handleResetScores">
-      重置比分
-    </button>
-    <button class="action-button" bindtap="showRules">
-      规则
-    </button>
+  <view class="card action-card">
+    <view class="actions">
+      <button class="action-button action-primary" bindtap="handleRestart">
+        重新开始
+      </button>
+      <button
+        class="action-button action-secondary"
+        bindtap="handleUndo"
+        disabled="{{moveHistory.length === 0 || isComputerThinking}}"
+      >
+        撤销
+      </button>
+      <button class="action-button action-secondary" bindtap="showRules">
+        规则
+      </button>
+      <button class="action-button action-danger" bindtap="handleResetScores">
+        重置比分
+      </button>
+    </view>
   </view>
 
-  <view class="history-panel">
+  <view class="card history-card">
     <view class="history-header">
-      <text class="section-title">落子历史</text>
+      <view>
+        <text class="card-title">落子历史</text>
+        <text class="history-caption">共 {{moveHistory.length}} 步</text>
+      </view>
       <button
         wx:if="{{moveHistory.length > 6}}"
         class="link-button"
@@ -106,24 +165,51 @@
         {{historyExpanded ? '收起' : '展开'}}
       </button>
     </view>
-    <view wx:if="{{displayedHistory.length === 0}}" class="empty-history">还没有落子</view>
+
+    <view wx:if="{{displayedHistory.length === 0}}" class="empty-history">
+      <view class="empty-history-mark">·</view>
+      <text>落子后会在这里显示完整记录</text>
+    </view>
     <view wx:else class="history-list">
       <view wx:for="{{displayedHistory}}" wx:key="step" class="history-item">
-        {{item.text}}
+        <text class="step-number">{{item.step}}</text>
+        <text class="history-player player-{{item.player}}">{{item.player}}</text>
+        <text class="history-text">{{item.text}}</text>
       </view>
     </view>
   </view>
 
   <view wx:if="{{rulesVisible}}" class="modal-mask" catchtap="hideRules">
     <view class="rules-dialog" catchtap="noop">
-      <view class="rules-title">游戏规则</view>
-      <view class="rules-text">
-        <view>棋盘由 9 个小棋盘组成。你下在哪个小格，对手下一步就要去对应位置的小棋盘。</view>
-        <view>如果目标小棋盘已满，对手可以自由选择其他未满小棋盘。</view>
-        <view>小棋盘三连后会归属给获胜玩家，但只要还有空格，仍然可以继续落子。</view>
-        <view>已归属小棋盘的归属不会改变，后续落子仍会控制对手下一步的位置。</view>
-        <view>大棋盘上先占领三个连成一线的小棋盘即可获胜。</view>
+      <view class="dialog-handle"></view>
+      <view class="rules-header">
+        <text class="rules-title">游戏规则</text>
+        <text class="rules-subtitle">终极井字棋</text>
       </view>
+
+      <view class="rules-list">
+        <view class="rule-item">
+          <text class="rule-number">1</text>
+          <text class="rule-copy">棋盘由 9 个小棋盘组成。你下在哪个小格，对手下一步就要去对应位置的小棋盘。</text>
+        </view>
+        <view class="rule-item">
+          <text class="rule-number">2</text>
+          <text class="rule-copy">如果目标小棋盘已满，对手可以自由选择其他未满小棋盘。</text>
+        </view>
+        <view class="rule-item">
+          <text class="rule-number">3</text>
+          <text class="rule-copy">小棋盘三连后会归属给获胜玩家，但只要还有空格，仍然可以继续落子。</text>
+        </view>
+        <view class="rule-item">
+          <text class="rule-number">4</text>
+          <text class="rule-copy">已归属小棋盘的归属不会改变，后续落子仍会控制对手下一步的位置。</text>
+        </view>
+        <view class="rule-item">
+          <text class="rule-number">5</text>
+          <text class="rule-copy">大棋盘上先占领三个连成一线的小棋盘即可获胜。</text>
+        </view>
+      </view>
+
       <button class="primary-button" bindtap="hideRules">知道了</button>
     </view>
   </view>
